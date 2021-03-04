@@ -5,23 +5,24 @@ import sys
 import torch
 from gan_trainer import Trainer
 from Losses import ChamferLoss
-from visualizer import Visualizer
+# from visualizer import Visualizer
 from torch.utils.data import DataLoader
 from torchvision import transforms, datasets
-from VAE_c import VAE
+from VAE_c import VAE, show_tensor_images
 
 
 class toLatentTsfm(object):
     # class for transforming the images to the latent space
-    def init(self, vae):
+    def __init__(self, vae_model, device):
         # the vae model for transofrmation
-        self.vae = vae
+        self.vae = vae_model
         # set the vae to the eval mode
         self.vae.eval()
+        self.device = device
 
-    def call(self, sample):
+    def __call__(self, sample):
         image = sample
-        image = image.reshape((1,) + tuple(image.shape)).to(device)
+        image = image.reshape((1,) + tuple(image.shape)).to(self.device)
         reconImage, encoding, z_sample = self.vae(image)
         return z_sample
 
@@ -54,12 +55,12 @@ def parse_args(args):
     parser.add_argument('--gpu_id', type=int, default=0, help='gpu ids: e.g. 0, 1. -1 is no GPU')
 
     # Visualizer Settings
-    parser.add_argument('--name', type=str, default='GFV',
-                        help='name of the experiment. It decides where to store samples and models')
-    parser.add_argument('--display_winsize', type=int, default=256, help='display window size')
-    parser.add_argument('--display_id', type=int, default=2000, help='window id of the web display')
-    parser.add_argument('--port_id', type=int, default=8099, help='Port id for browser')
-    parser.add_argument('--print_freq', type=int, default=10, help='Print Frequency')
+    # parser.add_argument('--name', type=str, default='GFV',
+    #                     help='name of the experiment. It decides where to store samples and models')
+    # parser.add_argument('--display_winsize', type=int, default=256, help='display window size')
+    # parser.add_argument('--display_id', type=int, default=2000, help='window id of the web display')
+    # parser.add_argument('--port_id', type=int, default=8099, help='Port id for browser')
+    # parser.add_argument('--print_freq', type=int, default=10, help='Print Frequency')
 
     # Training setting
     parser.add_argument('--total_step', type=int, default=1000000, help='how many times to update the generator')
@@ -89,7 +90,7 @@ def parse_args(args):
     # Step size
     parser.add_argument('--log_step', type=int, default=100)
     parser.add_argument('--sample_step', type=int, default=100)
-    parser.add_argument('--model_save_step', type=float, default=10.0)
+    parser.add_argument('--model_save_step', type=float, default=2.0)
 
     return parser.parse_args(args)
 
@@ -107,10 +108,15 @@ if __name__ == "__main__":
     # TODO: add latent_loader
     vae = VAE()
     vae.load_state_dict(torch.load('models/vae.pth'))
-    transform = transforms.Compose([transforms.ToTensor(), toLatentTsfm(vae)])
+    vae.to(args.device)
+    transform = transforms.Compose([transforms.ToTensor(), toLatentTsfm(vae, args.device)])
     mnistEncoded = datasets.MNIST('.', train=True, transform=transform)
     gan_trainDataLoader = DataLoader(mnistEncoded, shuffle=True, batch_size=args.batch_size)
     latent_loader = gan_trainDataLoader
+    # iter_latent = iter(latent_loader)
+    # e = next(iter_latent)
+    # print(e)
+    # print(e.shape)
 
     # only used for visualization
     model_decoder = vae.decode
@@ -118,24 +124,22 @@ if __name__ == "__main__":
     chamfer = ChamferLoss(args)
 
     """ Visualization """
-    visualizer = Visualizer(args)
-
-    args.display_id = args.display_id + 10
-    args.name = 'Validation'
-    vis_Valid = Visualizer(args)
-    vis_Valida = []
-    args.display_id = args.display_id + 10
-
-    for i in range(args.batch_size):
-        vis_Valida.append(Visualizer(args))
-        args.display_id = args.display_id + 10
+    # visualizer = Visualizer(args)
+    #
+    # args.display_id = args.display_id + 10
+    # args.name = 'Validation'
+    # vis_Valid = Visualizer(args)
+    # vis_Valida = []
+    # args.display_id = args.display_id + 10
+    # for i in range(args.batch_size):
+    #     vis_Valida.append(Visualizer(args))
+    #     args.display_id = args.display_id + 10
 
     if args.train:
-        trainer = Trainer(args, latent_loader, model_decoder, chamfer, vis_Valida)
+        trainer = Trainer(args, latent_loader, model_decoder, chamfer, show_tensor_images)
         trainer.train()
     else:
         # TODO: add tester
         print('not implemented')
         # tester = Tester(data_loader.loader(), args, valid_loader)
         # tester.test()
-
