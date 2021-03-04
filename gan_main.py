@@ -6,6 +6,24 @@ import torch
 from gan_trainer import Trainer
 from Losses import ChamferLoss
 from visualizer import Visualizer
+from torch.utils.data import DataLoader
+from torchvision import transforms, datasets
+from VAE_c import VAE
+
+
+class toLatentTsfm(object):
+    # class for transforming the images to the latent space
+    def init(self, vae):
+        # the vae model for transofrmation
+        self.vae = vae
+        # set the vae to the eval mode
+        self.vae.eval()
+
+    def call(self, sample):
+        image = sample
+        image = image.reshape((1,) + tuple(image.shape)).to(device)
+        reconImage, encoding, z_sample = self.vae(image)
+        return z_sample
 
 
 def str2bool(v):
@@ -87,10 +105,15 @@ if __name__ == "__main__":
     torch.cuda.set_device(args.gpu_id)
 
     # TODO: add latent_loader
-    latent_loader = []
+    vae = VAE()
+    vae.load_state_dict(torch.load('models/vae.pth'))
+    transform = transforms.Compose([transforms.ToTensor(), toLatentTsfm(vae)])
+    mnistEncoded = datasets.MNIST('.', train=True, transform=transform)
+    gan_trainDataLoader = DataLoader(mnistEncoded, shuffle=True, batch_size=args.batch_size)
+    latent_loader = gan_trainDataLoader
 
     # only used for visualization
-    model_decoder = []
+    model_decoder = vae.decode
 
     chamfer = ChamferLoss(args)
 
@@ -103,12 +126,12 @@ if __name__ == "__main__":
     vis_Valida = []
     args.display_id = args.display_id + 10
 
-    for i in range(1, 12):
+    for i in range(args.batch_size):
         vis_Valida.append(Visualizer(args))
         args.display_id = args.display_id + 10
 
     if args.train:
-        trainer = Trainer(None, args, latent_loader, model_decoder, chamfer)
+        trainer = Trainer(args, latent_loader, model_decoder, chamfer, vis_Valida)
         trainer.train()
     else:
         # TODO: add tester
