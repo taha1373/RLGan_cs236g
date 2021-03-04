@@ -95,10 +95,13 @@ class Trainer(object):
             self.G.train()
 
             try:
-                real_latent = next(train_iter)
+                real_latent = next(train_iter)[0]
             except:
+                print('except')
                 train_iter = iter(self.latent_loader)
-                real_latent = next(train_iter)
+                real_latent = next(train_iter)[0]
+
+            real_latent = real_latent.unsqueeze(1)
 
             # Compute loss with real images
             # dr1, dr2, df1, df2, gf1, gf2 are attention scores
@@ -169,33 +172,47 @@ class Trainer(object):
             if (step + 1) % self.log_step == 0:
                 elapsed = time.time() - start_time
                 elapsed = str(datetime.timedelta(seconds=elapsed))
+                d_real = d_loss_real.data
+                if d_real.dim():
+                    d_real_first = d_real[0]
+                else:
+                    d_real_first = d_real
+
+                d_fake = d_loss_fake.data
+                if d_fake.dim():
+                    d_fake_first = d_fake[0]
+                else:
+                    d_fake_first = d_fake
+
                 print("Elapsed [{}], G_step [{}/{}], D_step[{}/{}], d_out_real: {:.4f}, d_out_fake: {:.4f}, "
                       " ave_gamma_l3: {:.4f}, ave_gamma_l4: {:.4f}".
                       format(elapsed, step + 1, self.total_step, (step + 1),
-                             self.total_step, d_loss_real.data[0], d_loss_fake.data[0], self.total_step,
-                             d_loss_real.data[0], self.total_step, d_loss_real.data[0]))
+                             self.total_step, d_real_first, d_fake_first, self.total_step,
+                             d_real_first, self.total_step, d_real_first))
 
             # Sample images
             if (step + 1) % self.sample_step == 0:
                 fake_latent, _ = self.G(fixed_z)
 
-                encoded = fake_latent.contiguous().view(self.batch_size, 128)
+                encoded = fake_latent.contiguous().view(self.batch_size, self.l_size)
 
                 pc_1 = self.model_decoder(encoded)
 
-                epoch = 0
-                for self.j in range(0, self.batch_size):
-                    pc_1_temp = pc_1[self.j, :, :]
-                    test = fixed_z.detach().cpu().numpy()
-                    test1 = np.asscalar(test[self.j, 0])
-                    visuals = OrderedDict(
-                        [('Validation Predicted_pc', pc_1_temp.detach().cpu().numpy())])
-                    self.vis[self.j].display_current_results(visuals, epoch, step, z=str(test1))
-
-                save_image(denorm(fake_latent.data),
-                           os.path.join(self.sample_path, '{}_fake.png'.format(step + 1)))
+                self.vis(pc_1, self.batch_size)
+                # epoch = 0
+                # for self.j in range(0, self.batch_size):
+                #     pc_1_temp = pc_1[self.j, :, :]
+                #     test = fixed_z.detach().cpu().numpy()
+                #     test1 = np.asscalar(test[self.j, 0])
+                #     visuals = OrderedDict(
+                #         [('Validation Predicted_pc', pc_1_temp.detach().squeeze(0).cpu().numpy())])
+                #     self.vis[self.j].display_current_results(visuals, epoch, step, z=str(test1))
+                #
+                # save_image(denorm(fake_latent.data),
+                #            os.path.join(self.sample_path, '{}_fake.png'.format(step + 1)))
 
             if (step + 1) % model_save_step == 0:
+                print(os.path.join(self.model_save_path, '{}_G.pth'.format(step + 1)))
                 torch.save(self.G.state_dict(),
                            os.path.join(self.model_save_path, '{}_G.pth'.format(step + 1)))
                 torch.save(self.D.state_dict(),

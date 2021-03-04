@@ -99,7 +99,7 @@ class Generator(nn.Module):
 
         self.attn1 = Self_Attn(64, 'relu')
         self.attn2 = Self_Attn(64, 'relu')
-        self.input1d2d = nn.ConvTranspose1d(144, 64, 1)
+        self.input1d2d = nn.ConvTranspose1d(144, self.imsize, 1)
 
     def forward(self, z):
         z = z.view(z.size(0), z.size(1), 1, 1)
@@ -117,7 +117,7 @@ class Generator(nn.Module):
         out = self.input1d2d(out)
         out = out.transpose(2, 1)
 
-        out = out.view(-1, 1, 1, 64)
+        out = out.view(-1, 1, 1, 32)
         return out, p1  # , p2
 
 
@@ -161,7 +161,7 @@ class Discriminator(nn.Module):
         self.attn1 = Self_Attn(256, 'relu')
         self.attn2 = Self_Attn(512, 'relu')
 
-        self.input1d2d = nn.ConvTranspose1d(64, 144, 1)  # SpectralNorm(nn.ConvTranspose1d(128,144,1))
+        self.input1d2d = nn.ConvTranspose1d(self.imsize, 144, 1)  # SpectralNorm(nn.ConvTranspose1d(128,144,1))
 
     def forward(self, x):
         x = x.squeeze(1)
@@ -186,5 +186,8 @@ if __name__ == '__main__':
     g = Generator(1, image_size=32, z_dim=1)
     d = Discriminator(1, image_size=32)
     e, g1 = g(tensor2var(torch.FloatTensor([[1.]])))
+    # e = tensor2var(torch.FloatTensor(np.zeros((10, 1, 1, 32))))
+    # print(e.size())
     w, d1 = d(e)
+    print(w.dim())
     print('finished')
