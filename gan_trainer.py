@@ -9,6 +9,7 @@ from torchvision.utils import save_image
 from gan import Generator, Discriminator
 from collections import OrderedDict
 from utils import *
+from torch.utils.tensorboard import SummaryWriter
 
 
 class Trainer(object):
@@ -57,6 +58,7 @@ class Trainer(object):
         os.makedirs(self.model_save_path, exist_ok=True)
         os.makedirs(self.sample_path, exist_ok=True)
 
+        self.writer = SummaryWriter(self.log_path)
 
         self.log_step = args.log_step
         self.sample_step = args.sample_step
@@ -191,11 +193,11 @@ class Trainer(object):
                 else:
                     d_fake_first = d_fake
 
-                print("Elapsed [{}], G_step [{}/{}], D_step[{}/{}], d_out_real: {:.4f}, d_out_fake: {:.4f}, "
-                      " ave_gamma_l3: {:.4f}, ave_gamma_l4: {:.4f}".
+                print("Elapsed [{}], G_step [{}/{}], D_step[{}/{}], d_out_real: {:.4f}, d_out_fake: {:.4f}, ".
                       format(elapsed, step + 1, self.total_step, (step + 1),
-                             self.total_step, d_real_first, d_fake_first, self.total_step,
-                             d_real_first, self.total_step, d_real_first))
+                             self.total_step, d_real_first, d_fake_first))
+                self.writer.add_scalar("d_out_real", d_real_first, step + 1)
+                self.writer.add_scalar("d_out_fake", d_fake_first, step + 1)
 
             # Sample images
             if (step + 1) % self.sample_step == 0:
@@ -219,7 +221,8 @@ class Trainer(object):
                 #            os.path.join(self.sample_path, '{}_fake.png'.format(step + 1)))
 
             if (step + 1) % model_save_step == 0:
-                print(os.path.join(self.model_save_path, '{}_G.pth'.format(step + 1)))
+                self.writer.flush()
+                # print(os.path.join(self.model_save_path, '{}_G.pth'.format(step + 1)))
                 torch.save(self.G.state_dict(),
                            os.path.join(self.model_save_path, '{}_G.pth'.format(step + 1)))
                 torch.save(self.D.state_dict(),
