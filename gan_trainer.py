@@ -48,9 +48,16 @@ class Trainer(object):
         self.pretrained_num = args.pretrained_num
 
         # self.use_tensorboard = args.use_tensorboard
-        self.log_path = args.log_path
-        self.model_save_path = args.model_save_path
-        self.sample_path = args.sample_path
+        self.save_dir = args.save_dir
+        self.log_path = os.path.join(self.save_dir, args.log_path)
+        self.model_save_path = os.path.join(self.save_dir, args.model_save_path)
+        self.sample_path = os.path.join(self.save_dir, args.sample_path)
+
+        os.makedirs(self.log_path, exist_ok=True)
+        os.makedirs(self.model_save_path, exist_ok=True)
+        os.makedirs(self.sample_path, exist_ok=True)
+
+
         self.log_step = args.log_step
         self.sample_step = args.sample_step
         self.model_save_step = args.model_save_step
