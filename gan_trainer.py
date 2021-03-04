@@ -196,7 +196,7 @@ class Trainer(object):
                 print("Elapsed [{}], G_step [{}/{}], D_step[{}/{}], d_out_real: {:.4f}, d_out_fake: {:.4f}, ".
                       format(elapsed, step + 1, self.total_step, (step + 1),
                              self.total_step, d_real_first, d_fake_first))
-                self.writer.add_scalar("d_out_real", d_out_real, step + 1)
+                self.writer.add_scalar("d_out_real", d_real_first, step + 1)
                 self.writer.add_scalar("d_out_fake", d_fake_first, step + 1)
 
             # Sample images
