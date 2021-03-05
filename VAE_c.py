@@ -122,7 +122,6 @@ class Decoder(nn.Module):
         return self.gen(x)
 
 
-
 class VAE(nn.Module):
     '''
     VAE Class
