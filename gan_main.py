@@ -4,8 +4,25 @@ import argparse
 import sys
 import torch
 from gan_trainer import Trainer
-from Losses import ChamferLoss
-from visualizer import Visualizer
+from torch.utils.data import DataLoader
+from torchvision import transforms, datasets
+from AE import AutoEncoder, show_tensor_images
+
+
+class toLatentTsfm(object):
+    # class for transforming the images to the latent space
+    def __init__(self, ae_model, device):
+        # the vae model for transofrmation
+        self.ae = ae_model
+        # set the vae to the eval mode
+        self.ae.eval()
+        self.device = device
+
+    def __call__(self, sample):
+        image = sample
+        image = image.reshape((1,) + tuple(image.shape)).to(self.device)
+        reconImage, z_sample = self.ae(image)
+        return z_sample
 
 
 def str2bool(v):
@@ -36,12 +53,12 @@ def parse_args(args):
     parser.add_argument('--gpu_id', type=int, default=0, help='gpu ids: e.g. 0, 1. -1 is no GPU')
 
     # Visualizer Settings
-    parser.add_argument('--name', type=str, default='GFV',
-                        help='name of the experiment. It decides where to store samples and models')
-    parser.add_argument('--display_winsize', type=int, default=256, help='display window size')
-    parser.add_argument('--display_id', type=int, default=2000, help='window id of the web display')
-    parser.add_argument('--port_id', type=int, default=8099, help='Port id for browser')
-    parser.add_argument('--print_freq', type=int, default=10, help='Print Frequency')
+    # parser.add_argument('--name', type=str, default='GFV',
+    #                     help='name of the experiment. It decides where to store samples and models')
+    # parser.add_argument('--display_winsize', type=int, default=256, help='display window size')
+    # parser.add_argument('--display_id', type=int, default=2000, help='window id of the web display')
+    # parser.add_argument('--port_id', type=int, default=8099, help='Port id for browser')
+    # parser.add_argument('--print_freq', type=int, default=10, help='Print Frequency')
 
     # Training setting
     parser.add_argument('--total_step', type=int, default=1000000, help='how many times to update the generator')
@@ -63,15 +80,16 @@ def parse_args(args):
     # parser.add_argument('--use_tensorboard', type=str2bool, default=False)
 
     # Path
-    parser.add_argument('--log_path', type=str, default='./logs')
-    parser.add_argument('--model_save_path', type=str, default='./models')
-    parser.add_argument('--sample_path', type=str, default='./samples')
-    parser.add_argument('--attn_path', type=str, default='./attn')
+    parser.add_argument('--save_dir', type=str, default='./gan')
+    parser.add_argument('--log_path', type=str, default='logs')
+    parser.add_argument('--model_save_path', type=str, default='models')
+    parser.add_argument('--sample_path', type=str, default='samples')
+    parser.add_argument('--attn_path', type=str, default='attn')
 
     # Step size
     parser.add_argument('--log_step', type=int, default=100)
     parser.add_argument('--sample_step', type=int, default=100)
-    parser.add_argument('--model_save_step', type=float, default=10.0)
+    parser.add_argument('--model_save_step', type=float, default=2.0)
 
     return parser.parse_args(args)
 
@@ -87,28 +105,35 @@ if __name__ == "__main__":
     torch.cuda.set_device(args.gpu_id)
 
     # TODO: add latent_loader
-    latent_loader = []
+    ae = AutoEncoder()
+    ae.load_state_dict(torch.load('models/ae.pth'))
+    ae.to(args.device)
+    transform = transforms.Compose([transforms.ToTensor(), toLatentTsfm(ae, args.device)])
+    mnistEncoded = datasets.MNIST('.', train=True, transform=transform)
+    gan_trainDataLoader = DataLoader(mnistEncoded, shuffle=True, batch_size=args.batch_size)
+    latent_loader = gan_trainDataLoader
+    # iter_latent = iter(latent_loader)
+    # e = next(iter_latent)
+    # print(e)
+    # print(e.shape)
 
     # only used for visualization
-    model_decoder = []
-
-    chamfer = ChamferLoss(args)
+    model_decoder = ae.decode
 
     """ Visualization """
-    visualizer = Visualizer(args)
-
-    args.display_id = args.display_id + 10
-    args.name = 'Validation'
-    vis_Valid = Visualizer(args)
-    vis_Valida = []
-    args.display_id = args.display_id + 10
-
-    for i in range(1, 12):
-        vis_Valida.append(Visualizer(args))
-        args.display_id = args.display_id + 10
+    # visualizer = Visualizer(args)
+    #
+    # args.display_id = args.display_id + 10
+    # args.name = 'Validation'
+    # vis_Valid = Visualizer(args)
+    # vis_Valida = []
+    # args.display_id = args.display_id + 10
+    # for i in range(args.batch_size):
+    #     vis_Valida.append(Visualizer(args))
+    #     args.display_id = args.display_id + 10
 
     if args.train:
-        trainer = Trainer(None, args, latent_loader, model_decoder, chamfer)
+        trainer = Trainer(args, latent_loader, model_decoder, show_tensor_images)
         trainer.train()
     else:
         # TODO: add tester

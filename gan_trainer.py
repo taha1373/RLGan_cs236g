@@ -9,14 +9,14 @@ from torchvision.utils import save_image
 from gan import Generator, Discriminator
 from collections import OrderedDict
 from utils import *
-
+from torch.utils.tensorboard import SummaryWriter
+import matplotlib.pyplot as plt
 
 class Trainer(object):
-    def __init__(self, args, latent_loader, model_decoder, chamfer, vis_Valida):
+    def __init__(self, args, latent_loader, model_decoder, vis_Valida):
 
         # decoder settings
         self.model_decoder = model_decoder
-        self.chamfer = chamfer
         self.vis = vis_Valida
         self.j = 0
 
@@ -48,9 +48,17 @@ class Trainer(object):
         self.pretrained_num = args.pretrained_num
 
         # self.use_tensorboard = args.use_tensorboard
-        self.log_path = args.log_path
-        self.model_save_path = args.model_save_path
-        self.sample_path = args.sample_path
+        self.save_dir = args.save_dir
+        self.log_path = os.path.join(self.save_dir, args.log_path)
+        self.model_save_path = os.path.join(self.save_dir, args.model_save_path)
+        self.sample_path = os.path.join(self.save_dir, args.sample_path)
+
+        os.makedirs(self.log_path, exist_ok=True)
+        os.makedirs(self.model_save_path, exist_ok=True)
+        os.makedirs(self.sample_path, exist_ok=True)
+
+        self.writer = SummaryWriter(self.log_path)
+
         self.log_step = args.log_step
         self.sample_step = args.sample_step
         self.model_save_step = args.model_save_step
@@ -95,10 +103,13 @@ class Trainer(object):
             self.G.train()
 
             try:
-                real_latent = next(train_iter)
+                real_latent = next(train_iter)[0]
             except:
+                print('except')
                 train_iter = iter(self.latent_loader)
-                real_latent = next(train_iter)
+                real_latent = next(train_iter)[0]
+
+            real_latent = real_latent.unsqueeze(1)
 
             # Compute loss with real images
             # dr1, dr2, df1, df2, gf1, gf2 are attention scores
@@ -169,42 +180,71 @@ class Trainer(object):
             if (step + 1) % self.log_step == 0:
                 elapsed = time.time() - start_time
                 elapsed = str(datetime.timedelta(seconds=elapsed))
-                print("Elapsed [{}], G_step [{}/{}], D_step[{}/{}], d_out_real: {:.4f}, d_out_fake: {:.4f}, "
-                      " ave_gamma_l3: {:.4f}, ave_gamma_l4: {:.4f}".
+                d_real = d_loss_real.data
+                if d_real.dim():
+                    d_real_first = d_real[0]
+                else:
+                    d_real_first = d_real
+
+                d_fake = d_loss_fake.data
+                if d_fake.dim():
+                    d_fake_first = d_fake[0]
+                else:
+                    d_fake_first = d_fake
+
+                print("Elapsed [{}], G_step [{}/{}], D_step[{}/{}], d_out_real: {:.4f}, d_out_fake: {:.4f}, ".
                       format(elapsed, step + 1, self.total_step, (step + 1),
-                             self.total_step, d_loss_real.data[0], d_loss_fake.data[0], self.total_step,
-                             d_loss_real.data[0], self.total_step, d_loss_real.data[0]))
+                             self.total_step, d_real_first, d_fake_first))
+                self.writer.add_scalar("d_out_real", d_real_first, step + 1)
+                self.writer.add_scalar("d_out_fake", d_fake_first, step + 1)
 
             # Sample images
             if (step + 1) % self.sample_step == 0:
-                fake_latent, _ = self.G(fixed_z)
+                # fake_latent, _ = self.G(fixed_z)
 
-                encoded = fake_latent.contiguous().view(self.batch_size, 128)
+                encoded = fake_latent.contiguous().view(self.batch_size, self.l_size)
 
                 pc_1 = self.model_decoder(encoded)
 
-                epoch = 0
-                for self.j in range(0, self.batch_size):
-                    pc_1_temp = pc_1[self.j, :, :]
-                    test = fixed_z.detach().cpu().numpy()
-                    test1 = np.asscalar(test[self.j, 0])
-                    visuals = OrderedDict(
-                        [('Validation Predicted_pc', pc_1_temp.detach().cpu().numpy())])
-                    self.vis[self.j].display_current_results(visuals, epoch, step, z=str(test1))
+                self.vis(pc_1, self.batch_size)
+                plt.title("GAN result")
+                plt.savefig(os.path.join(self.sample_path, "step_{}".format(step + 1)))
+                plt.show()
+                # plt.subplot(1, 2, 1)
+                # show_tensor_images(images)
+                # plt.title("True")
+                # plt.subplot(1, 2, 2)
+                # show_tensor_images(recon_images)
+                # plt.title("Reconstructed")
+                # # plt.savefig("epoch_{}.pdf".format(epoch))
+                # plt.savefig(os.path.join(self.train_checkPoints, "epoch_{}".format(epoch)))
+                # plt.show()
 
-                save_image(denorm(fake_latent.data),
-                           os.path.join(self.sample_path, '{}_fake.png'.format(step + 1)))
+                # epoch = 0
+                # for self.j in range(0, self.batch_size):
+                #     pc_1_temp = pc_1[self.j, :, :]
+                #     test = fixed_z.detach().cpu().numpy()
+                #     test1 = np.asscalar(test[self.j, 0])
+                #     visuals = OrderedDict(
+                #         [('Validation Predicted_pc', pc_1_temp.detach().squeeze(0).cpu().numpy())])
+                #     self.vis[self.j].display_current_results(visuals, epoch, step, z=str(test1))
+                #
+                # save_image(denorm(fake_latent.data),
+                #            os.path.join(self.sample_path, '{}_fake.png'.format(step + 1)))
 
             if (step + 1) % model_save_step == 0:
+                self.writer.flush()
+                # print(os.path.join(self.model_save_path, '{}_G.pth'.format(step + 1)))
                 torch.save(self.G.state_dict(),
                            os.path.join(self.model_save_path, '{}_G.pth'.format(step + 1)))
                 torch.save(self.D.state_dict(),
                            os.path.join(self.model_save_path, '{}_D.pth'.format(step + 1)))
 
+
     def build_model(self):
 
-        self.G = Generator(self.batch_size, self.l_size, self.z_dim, self.g_conv_dim).cuda()
-        self.D = Discriminator(self.batch_size, self.l_size, self.d_conv_dim).cuda()
+        self.G = Generator(self.l_size, self.z_dim, self.g_conv_dim).cuda()
+        self.D = Discriminator(self.l_size, self.d_conv_dim).cuda()
         if self.parallel:
             self.G = nn.DataParallel(self.G)
             self.D = nn.DataParallel(self.D)
@@ -226,12 +266,19 @@ class Trainer(object):
     #     self.logger = Logger(self.log_path)
 
     def load_pretrained_model(self):
-        raise NotImplementedError('not implemented')
-        # self.G.load_state_dict(torch.load(os.path.join(
-        #     self.model_save_path, '{}_G.pth'.format(self.pretrained_model))))
-        # self.D.load_state_dict(torch.load(os.path.join(
-        #     self.model_save_path, '{}_D.pth'.format(self.pretrained_model))))
-        # print('loaded trained models (step: {})..!'.format(self.pretrained_model))
+        # raise NotImplementedError('not implemented')
+        G_path = os.path.join(self.model_save_path, '{}_G.pth'.format(self.pretrained_num))
+        if os.path.exists(G_path):
+            self.G.load_state_dict(torch.load(G_path))
+        else:
+            raise FileNotFoundError('generator does not exist')
+
+        D_path = os.path.join(self.model_save_path, '{}_D.pth'.format(self.pretrained_num))
+        if os.path.exists(D_path):
+            self.D.load_state_dict(torch.load(D_path))
+        else:
+            raise FileNotFoundError('discriminator does not exist')
+        print('loaded trained models (step: {})..!'.format(self.pretrained_num))
 
     def reset_grad(self):
         self.d_optimizer.zero_grad()
