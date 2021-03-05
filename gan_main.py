@@ -4,8 +4,6 @@ import argparse
 import sys
 import torch
 from gan_trainer import Trainer
-from Losses import ChamferLoss
-# from visualizer import Visualizer
 from torch.utils.data import DataLoader
 from torchvision import transforms, datasets
 from AE import AutoEncoder, show_tensor_images
@@ -122,8 +120,6 @@ if __name__ == "__main__":
     # only used for visualization
     model_decoder = ae.decode
 
-    chamfer = ChamferLoss(args)
-
     """ Visualization """
     # visualizer = Visualizer(args)
     #
@@ -137,7 +133,7 @@ if __name__ == "__main__":
     #     args.display_id = args.display_id + 10
 
     if args.train:
-        trainer = Trainer(args, latent_loader, model_decoder, chamfer, show_tensor_images)
+        trainer = Trainer(args, latent_loader, model_decoder, show_tensor_images)
         trainer.train()
     else:
         # TODO: add tester

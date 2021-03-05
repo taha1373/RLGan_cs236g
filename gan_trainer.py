@@ -13,11 +13,10 @@ from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 
 class Trainer(object):
-    def __init__(self, args, latent_loader, model_decoder, chamfer, vis_Valida):
+    def __init__(self, args, latent_loader, model_decoder, vis_Valida):
 
         # decoder settings
         self.model_decoder = model_decoder
-        self.chamfer = chamfer
         self.vis = vis_Valida
         self.j = 0
 
@@ -244,8 +243,8 @@ class Trainer(object):
 
     def build_model(self):
 
-        self.G = Generator(self.batch_size, self.l_size, self.z_dim, self.g_conv_dim).cuda()
-        self.D = Discriminator(self.batch_size, self.l_size, self.d_conv_dim).cuda()
+        self.G = Generator(self.l_size, self.z_dim, self.g_conv_dim).cuda()
+        self.D = Discriminator(self.l_size, self.d_conv_dim).cuda()
         if self.parallel:
             self.G = nn.DataParallel(self.G)
             self.D = nn.DataParallel(self.D)
