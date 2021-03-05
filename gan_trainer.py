@@ -200,7 +200,7 @@ class Trainer(object):
 
             # Sample images
             if (step + 1) % self.sample_step == 0:
-                fake_latent, _ = self.G(fixed_z)
+                # fake_latent, _ = self.G(fixed_z)
 
                 encoded = fake_latent.contiguous().view(self.batch_size, self.l_size)
 
