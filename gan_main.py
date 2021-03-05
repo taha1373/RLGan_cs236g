@@ -8,22 +8,22 @@ from Losses import ChamferLoss
 # from visualizer import Visualizer
 from torch.utils.data import DataLoader
 from torchvision import transforms, datasets
-from VAE_c import VAE, show_tensor_images
+from AE import AutoEncoder, show_tensor_images
 
 
 class toLatentTsfm(object):
     # class for transforming the images to the latent space
-    def __init__(self, vae_model, device):
+    def __init__(self, ae_model, device):
         # the vae model for transofrmation
-        self.vae = vae_model
+        self.ae = ae_model
         # set the vae to the eval mode
-        self.vae.eval()
+        self.ae.eval()
         self.device = device
 
     def __call__(self, sample):
         image = sample
         image = image.reshape((1,) + tuple(image.shape)).to(self.device)
-        reconImage, encoding, z_sample = self.vae(image)
+        reconImage, z_sample = self.ae(image)
         return z_sample
 
 
@@ -107,10 +107,10 @@ if __name__ == "__main__":
     torch.cuda.set_device(args.gpu_id)
 
     # TODO: add latent_loader
-    vae = VAE()
-    vae.load_state_dict(torch.load('models/vae.pth'))
-    vae.to(args.device)
-    transform = transforms.Compose([transforms.ToTensor(), toLatentTsfm(vae, args.device)])
+    ae = AutoEncoder()
+    ae.load_state_dict(torch.load('models/ae.pth'))
+    ae.to(args.device)
+    transform = transforms.Compose([transforms.ToTensor(), toLatentTsfm(ae, args.device)])
     mnistEncoded = datasets.MNIST('.', train=True, transform=transform)
     gan_trainDataLoader = DataLoader(mnistEncoded, shuffle=True, batch_size=args.batch_size)
     latent_loader = gan_trainDataLoader
@@ -120,7 +120,7 @@ if __name__ == "__main__":
     # print(e.shape)
 
     # only used for visualization
-    model_decoder = vae.decode
+    model_decoder = ae.decode
 
     chamfer = ChamferLoss(args)
 

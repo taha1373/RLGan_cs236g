@@ -10,7 +10,7 @@ from gan import Generator, Discriminator
 from collections import OrderedDict
 from utils import *
 from torch.utils.tensorboard import SummaryWriter
-
+import matplotlib.pyplot as plt
 
 class Trainer(object):
     def __init__(self, args, latent_loader, model_decoder, chamfer, vis_Valida):
@@ -208,6 +208,19 @@ class Trainer(object):
                 pc_1 = self.model_decoder(encoded)
 
                 self.vis(pc_1, self.batch_size)
+                plt.title("GAN result")
+                plt.savefig(os.path.join(self.sample_path, "step_{}".format(step + 1)))
+                plt.show()
+                # plt.subplot(1, 2, 1)
+                # show_tensor_images(images)
+                # plt.title("True")
+                # plt.subplot(1, 2, 2)
+                # show_tensor_images(recon_images)
+                # plt.title("Reconstructed")
+                # # plt.savefig("epoch_{}.pdf".format(epoch))
+                # plt.savefig(os.path.join(self.train_checkPoints, "epoch_{}".format(epoch)))
+                # plt.show()
+
                 # epoch = 0
                 # for self.j in range(0, self.batch_size):
                 #     pc_1_temp = pc_1[self.j, :, :]
@@ -227,6 +240,7 @@ class Trainer(object):
                            os.path.join(self.model_save_path, '{}_G.pth'.format(step + 1)))
                 torch.save(self.D.state_dict(),
                            os.path.join(self.model_save_path, '{}_D.pth'.format(step + 1)))
+
 
     def build_model(self):
 
