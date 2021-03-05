@@ -266,12 +266,19 @@ class Trainer(object):
     #     self.logger = Logger(self.log_path)
 
     def load_pretrained_model(self):
-        raise NotImplementedError('not implemented')
-        # self.G.load_state_dict(torch.load(os.path.join(
-        #     self.model_save_path, '{}_G.pth'.format(self.pretrained_model))))
-        # self.D.load_state_dict(torch.load(os.path.join(
-        #     self.model_save_path, '{}_D.pth'.format(self.pretrained_model))))
-        # print('loaded trained models (step: {})..!'.format(self.pretrained_model))
+        # raise NotImplementedError('not implemented')
+        G_path = os.path.join(self.model_save_path, '{}_G.pth'.format(self.pretrained_num))
+        if os.path.exists(G_path):
+            self.G.load_state_dict(torch.load(G_path))
+        else:
+            raise FileNotFoundError('generator does not exist')
+
+        D_path = os.path.join(self.model_save_path, '{}_D.pth'.format(self.pretrained_num))
+        if os.path.exists(D_path):
+            self.D.load_state_dict(torch.load(D_path))
+        else:
+            raise FileNotFoundError('discriminator does not exist')
+        print('loaded trained models (step: {})..!'.format(self.pretrained_num))
 
     def reset_grad(self):
         self.d_optimizer.zero_grad()
