@@ -12,83 +12,100 @@ from utils import *
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 
+
 class Trainer(object):
-    def __init__(self, args, latent_loader, model_decoder, vis_Valida):
+    """Generator trainer"""
+    def __init__(self, args, latent_loader, model_decoder, visualizer):
+        """
+        initialize Generator, Discriminator trainer
 
-        # decoder settings
+        Parameters
+        ----------
+        args : dict
+            args dictionary look at :func: '~gan_main.parse_args'
+        latent_loader : iterator
+            latent space data loader
+        model_decoder : torch.nn.Module
+            decoder model used in auto-decoder
+        visualizer : any
+            method for visualizing results
+        """
+
+        # setting model decoder and visualizer
         self.model_decoder = model_decoder
-        self.vis = vis_Valida
-        self.j = 0
+        self.vis = visualizer
 
-        # Data loader
+        # Data loader (outputs latent space of auto-encoder for mnist dataset)
         self.latent_loader = latent_loader
 
-        # exact model and loss
+
         self.args = args
+
+        #type of loss (currently trained only on hinge loss)
         self.adv_loss = args.adv_loss
 
-        # Model hyper-parameters
+        # Model hyper-parameters l_size: latent size (output of generator), z_dim: input size of generator,
+        # g_conv_dim: channel size of attention layer in generator (a measure for model capacity)
+        # d_conv_dim: channel size of attention layer in discriminator (a measure for model capacity)
         self.l_size = args.l_size
-        self.g_num = args.g_num
         self.z_dim = args.z_dim
         self.g_conv_dim = args.g_conv_dim
         self.d_conv_dim = args.d_conv_dim
-        self.parallel = args.parallel
 
+        # lambda_gp: gradient penalty for discrimniator, total_step: total step to run training
         self.lambda_gp = args.lambda_gp
         self.total_step = args.total_step
-        self.d_iters = args.d_iters
+
         self.batch_size = args.batch_size
-        self.num_workers = args.num_workers
+
+        # setting learning rates and learning decay, beta values for adam optimizer
         self.g_lr = args.g_lr
         self.d_lr = args.d_lr
         self.lr_decay = args.lr_decay
         self.beta1 = args.beta1
         self.beta2 = args.beta2
+
+        # step number to continue model training from
         self.pretrained_num = args.pretrained_num
 
-        # self.use_tensorboard = args.use_tensorboard
-        self.save_dir = args.save_dir
-        self.log_path = os.path.join(self.save_dir, args.log_path)
-        self.model_save_path = os.path.join(self.save_dir, args.model_save_path)
-        self.sample_path = os.path.join(self.save_dir, args.sample_path)
-
+        # making saving directory for sample results for generator, model saving and log saving
+        self.log_path = os.path.join(args.log_dir, 'GAN_train')
+        self.model_save_path = os.path.join(args.model_dir, 'GAN_train')
+        self.result_path = os.path.join(args.result_dir, 'GAN_train')
         os.makedirs(self.log_path, exist_ok=True)
         os.makedirs(self.model_save_path, exist_ok=True)
-        os.makedirs(self.sample_path, exist_ok=True)
+        os.makedirs(self.result_path, exist_ok=True)
 
+        # writing log for training
         self.writer = SummaryWriter(self.log_path)
 
+        # steps to print logs
         self.log_step = args.log_step
-        self.sample_step = args.sample_step
-        self.model_save_step = args.model_save_step
+
+        # cofficient of epoch to save models (1 --> every one epoch)
+        self.save_step = args.save_step
 
         self.build_model()
-
-        # if self.use_tensorboard:
-        #     self.build_tensorboard()
 
         # Start with trained model
         if self.pretrained_num:
             self.load_pretrained_model()
 
     def train(self):
-
-        # Data iterator
+        """
+        trains generator and discriminator: generator from z_dim dimensional space generates latent space
+        for mnist (encoded mnist dataset) suitable for model_decoder 
+        """
+        # Data iterator over encoded mnist dataset (latent space of auto-encoder)
         train_iter = iter(self.latent_loader)
 
-        # step_per_epoch = len(self.data_loader)
+        # steps in a epoch is length of data loader
         train_step_per_epoch = len(self.latent_loader)
 
-        model_save_step = int(self.model_save_step * train_step_per_epoch)
+        # setting step number for each model saving
+        save_step = int(self.save_step * train_step_per_epoch)
 
-        # # Fixed input for debugging
-        fixed_z_np = np.arange(-self.args.max_action, self.args.max_action,
-                               (self.args.max_action * 2) / self.batch_size)
-        fixed_z_n = tensor2var(torch.FloatTensor(fixed_z_np,))
-        fixed_z = fixed_z_n.unsqueeze(1)
-
-        # Start with trained model
+        # Start with trained model (setting step to continue)
         if self.pretrained_num:
             start = self.pretrained_num + 1
         else:
@@ -102,28 +119,30 @@ class Trainer(object):
             self.D.train()
             self.G.train()
 
+            # get latent date (when dataset finishes starts over)
             try:
                 real_latent = next(train_iter)[0]
             except:
-                print('except')
                 train_iter = iter(self.latent_loader)
                 real_latent = next(train_iter)[0]
 
+            # add dimension to be able to feed to discriminator
             real_latent = real_latent.unsqueeze(1)
 
-            # Compute loss with real images
-            # dr1, dr2, df1, df2, gf1, gf2 are attention scores
+            # Compute loss with real latent space data
             real_latent = tensor2var(real_latent)
-            d_out_real, dr1 = self.D(real_latent)
+            d_out_real, _ = self.D(real_latent)
+            
             if self.adv_loss == 'wgan-gp':
                 d_loss_real = - torch.mean(d_out_real)
             elif self.adv_loss == 'hinge':
                 d_loss_real = torch.nn.ReLU()(1.0 - d_out_real).mean()
 
+            
             # apply Gumbel Softmax
             z = tensor2var((torch.randn(real_latent.size(0), self.z_dim)))
-            fake_latent, gf1 = self.G(z)
-            d_out_fake, df1 = self.D(fake_latent)
+            fake_latent, _ = self.G(z)
+            d_out_fake, _ = self.D(fake_latent)
 
             if self.adv_loss == 'wgan-gp':
                 d_loss_fake = d_out_fake.mean()
@@ -161,17 +180,18 @@ class Trainer(object):
                 self.d_optimizer.step()
 
             # ================== Train G and gumbel ================== #
-            # Create random noise
+            # Create random noise with size z_dim
             z = tensor2var(torch.randn(real_latent.size(0), self.z_dim))
             fake_latent, _ = self.G(z)
 
-            # Compute loss with fake images
-            g_out_fake, _ = self.D(fake_latent)  # batch x n  TODO "_"
+            # Compute loss with fake generated latent data
+            g_out_fake, _ = self.D(fake_latent)
             if self.adv_loss == 'wgan-gp':
                 g_loss_fake = - g_out_fake.mean()
             elif self.adv_loss == 'hinge':
                 g_loss_fake = - g_out_fake.mean()
 
+            # Backward + Optimize
             self.reset_grad()
             g_loss_fake.backward()
             self.g_optimizer.step()
@@ -180,93 +200,60 @@ class Trainer(object):
             if (step + 1) % self.log_step == 0:
                 elapsed = time.time() - start_time
                 elapsed = str(datetime.timedelta(seconds=elapsed))
-                d_real = d_loss_real.data
-                if d_real.dim():
-                    d_real_first = d_real[0]
-                else:
-                    d_real_first = d_real
-
-                d_fake = d_loss_fake.data
-                if d_fake.dim():
-                    d_fake_first = d_fake[0]
-                else:
-                    d_fake_first = d_fake
-
+                
+                d_real = torch.mean(d_loss_real.data)
+                d_fake = torch.mean(d_loss_fake.data)
+                
                 print("Elapsed [{}], G_step [{}/{}], D_step[{}/{}], d_out_real: {:.4f}, d_out_fake: {:.4f}, ".
-                      format(elapsed, step + 1, self.total_step, (step + 1),
-                             self.total_step, d_real_first, d_fake_first))
-                self.writer.add_scalar("d_out_real", d_real_first, step + 1)
-                self.writer.add_scalar("d_out_fake", d_fake_first, step + 1)
+                      format(elapsed, step + 1, self.total_step, (step + 1), self.total_step, d_real, d_fake))
+                self.writer.add_scalar("d_out_real", d_real, step + 1)
+                self.writer.add_scalar("d_out_fake", d_fake, step + 1)
 
-            # Sample images
-            if (step + 1) % self.sample_step == 0:
-                # fake_latent, _ = self.G(fixed_z)
 
+            # save sample results by passing fake latent to decoder (from auto-decoder)
+            # save models by step number and flush log data
+            if (step + 1) % save_step == 0:
                 encoded = fake_latent.contiguous().view(self.batch_size, self.l_size)
+                imgs = self.model_decoder(encoded)
 
-                pc_1 = self.model_decoder(encoded)
-
-                self.vis(pc_1, self.batch_size)
+                # show and save images by step number
+                self.vis(imgs, self.batch_size)
                 plt.title("GAN result")
-                plt.savefig(os.path.join(self.sample_path, "step_{}".format(step + 1)))
+                plt.savefig(os.path.join(self.result_path, "step_{}".format(step + 1)))
                 plt.show()
-                # plt.subplot(1, 2, 1)
-                # show_tensor_images(images)
-                # plt.title("True")
-                # plt.subplot(1, 2, 2)
-                # show_tensor_images(recon_images)
-                # plt.title("Reconstructed")
-                # # plt.savefig("epoch_{}.pdf".format(epoch))
-                # plt.savefig(os.path.join(self.train_checkPoints, "epoch_{}".format(epoch)))
-                # plt.show()
 
-                # epoch = 0
-                # for self.j in range(0, self.batch_size):
-                #     pc_1_temp = pc_1[self.j, :, :]
-                #     test = fixed_z.detach().cpu().numpy()
-                #     test1 = np.asscalar(test[self.j, 0])
-                #     visuals = OrderedDict(
-                #         [('Validation Predicted_pc', pc_1_temp.detach().squeeze(0).cpu().numpy())])
-                #     self.vis[self.j].display_current_results(visuals, epoch, step, z=str(test1))
-                #
-                # save_image(denorm(fake_latent.data),
-                #            os.path.join(self.sample_path, '{}_fake.png'.format(step + 1)))
 
-            if (step + 1) % model_save_step == 0:
                 self.writer.flush()
-                # print(os.path.join(self.model_save_path, '{}_G.pth'.format(step + 1)))
                 torch.save(self.G.state_dict(),
                            os.path.join(self.model_save_path, '{}_G.pth'.format(step + 1)))
                 torch.save(self.D.state_dict(),
                            os.path.join(self.model_save_path, '{}_D.pth'.format(step + 1)))
 
-
     def build_model(self):
-
+        """
+        builds generator model for training
+        """
         self.G = Generator(self.l_size, self.z_dim, self.g_conv_dim).cuda()
         self.D = Discriminator(self.l_size, self.d_conv_dim).cuda()
-        if self.parallel:
-            self.G = nn.DataParallel(self.G)
-            self.D = nn.DataParallel(self.D)
 
         # Loss and optimizer
-        # self.g_optimizer = torch.optim.Adam(self.G.parameters(), self.g_lr, [self.beta1, self.beta2])
         self.g_optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.G.parameters()), self.g_lr,
                                             [self.beta1, self.beta2])
         self.d_optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.D.parameters()), self.d_lr,
                                             [self.beta1, self.beta2])
 
-        self.c_loss = torch.nn.CrossEntropyLoss()
-        # print networks
         print(self.G)
         print(self.D)
 
-    # def build_tensorboard(self):
-    #     from logger import Logger
-    #     self.logger = Logger(self.log_path)
-
     def load_pretrained_model(self):
-        # raise NotImplementedError('not implemented')
+        """
+        load pretrained model to continue training based on number of steps (pretrained_num)
+
+        Raises
+        ------
+        FileNotFoundError
+            if no model dict is present ({pretrained_num}_G.th and {pretrained_num}_D.th)
+        """
         G_path = os.path.join(self.model_save_path, '{}_G.pth'.format(self.pretrained_num))
         if os.path.exists(G_path):
             self.G.load_state_dict(torch.load(G_path))
@@ -281,9 +268,8 @@ class Trainer(object):
         print('loaded trained models (step: {})..!'.format(self.pretrained_num))
 
     def reset_grad(self):
+        """
+        reset gradients
+        """
         self.d_optimizer.zero_grad()
         self.g_optimizer.zero_grad()
-
-    def save_sample(self, data_iter):
-        real_images, _ = next(data_iter)
-        save_image(denorm(real_images), os.path.join(self.sample_path, 'real.png'))
