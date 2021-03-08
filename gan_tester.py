@@ -51,8 +51,8 @@ class Tester(object):
         self.pretrained_path = args.pretrained_path
 
         # directory to save results in
-        self.save_dir = args.save_dir
-        os.makedirs(self.save_dir, exist_ok=True)
+        self.result_path = os.path.join(args.result_dir, 'GAN_eval')
+        os.makedirs(self.result_path, exist_ok=True)
 
         self.build_model()
         self.load_pretrained_model(self.pretrained_path)
@@ -104,7 +104,7 @@ class Tester(object):
             self.vis(img, self.batch_size)
             plt.title("GAN result")
             # save result
-            plt.savefig(os.path.join(self.save_dir, str(out_number)))
+            plt.savefig(os.path.join(self.result_path, str(out_number)))
             out_number += 1
             plt.show()
             yield img, latent

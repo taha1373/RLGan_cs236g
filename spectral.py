@@ -3,11 +3,40 @@ from torch import nn
 from torch.nn import Parameter
 
 def l2normalize(v, eps=1e-12):
+    """
+    normalize variable
+
+    Parameters
+    ----------
+    v : 
+        variable
+    
+    Returns
+    -------
+    out :
+        normalized vriable
+
+    """
     return v / (v.norm() + eps)
 
 
 class SpectralNorm(nn.Module):
+    """Spectral Norm module"""
     def __init__(self, module, name='weight', power_iterations=1):
+        """
+        initialize Spectral Norm
+
+        Parameters
+        ----------
+        module : torch.nn.Module
+            module to run spectral norm on
+        latent_loader : iterator
+            latent space data loader
+        name : str
+            name of module
+        power_iterations : int
+            iteration of update
+        """
         super(SpectralNorm, self).__init__()
         self.module = module
         self.name = name
