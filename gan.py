@@ -117,6 +117,7 @@ class Generator(nn.Module):
         self.last = nn.Sequential(*last)
 
         # get output with a fully connected layer
+
         self.input1d2d = nn.ConvTranspose1d(144, self.outsize, 1)
 
     def forward(self, z):

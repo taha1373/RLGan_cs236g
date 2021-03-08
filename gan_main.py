@@ -70,7 +70,9 @@ def parse_args(args):
     # lambda_gp: gradient penalty
     parser.add_argument('--adv_loss', default='hinge', type=str, choices=['wgan-gp', 'hinge'])  #
     parser.add_argument('--l_size', default=32, type=int)
+    
     parser.add_argument('--z_dim', type=int, default=1)
+
     parser.add_argument('--g_conv_dim', type=int, default=64)
     parser.add_argument('--d_conv_dim', type=int, default=64)
     parser.add_argument('--lambda_gp', type=float, default=10, help='gradient penalty')
