@@ -4,9 +4,6 @@ from spectral import SpectralNorm
 import numpy as np
 
 
-# from models.layers import *
-
-
 class Self_Attn(nn.Module):
     """ Self attention Layer"""
 

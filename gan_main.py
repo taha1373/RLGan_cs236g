@@ -4,6 +4,7 @@ import argparse
 import sys
 import torch
 from gan_trainer import Trainer
+from gan_tester import Tester
 from torch.utils.data import DataLoader
 from torchvision import transforms, datasets
 from AE import AutoEncoder, show_tensor_images
@@ -36,7 +37,7 @@ def parse_args(args):
 
     parser.add_argument('-s', '--split_value', default=0.9, help='Ratio of train and test data split')
 
-    parser.add_argument('--pretrained_path', default='')
+    parser.add_argument('--pretrained_path', default='G.pth')
 
     # Model hyper-parameters
     parser.add_argument('--max_action', type=float, default=10)
@@ -51,14 +52,6 @@ def parse_args(args):
 
     # GPU settings
     parser.add_argument('--gpu_id', type=int, default=0, help='gpu ids: e.g. 0, 1. -1 is no GPU')
-
-    # Visualizer Settings
-    # parser.add_argument('--name', type=str, default='GFV',
-    #                     help='name of the experiment. It decides where to store samples and models')
-    # parser.add_argument('--display_winsize', type=int, default=256, help='display window size')
-    # parser.add_argument('--display_id', type=int, default=2000, help='window id of the web display')
-    # parser.add_argument('--port_id', type=int, default=8099, help='Port id for browser')
-    # parser.add_argument('--print_freq', type=int, default=10, help='Print Frequency')
 
     # Training setting
     parser.add_argument('--total_step', type=int, default=1000000, help='how many times to update the generator')
@@ -136,8 +129,9 @@ if __name__ == "__main__":
         trainer = Trainer(args, latent_loader, model_decoder, show_tensor_images)
         trainer.train()
     else:
-        # TODO: add tester
-        print('not implemented')
-        # tester = Tester(data_loader.loader(), args, valid_loader)
-        # tester.test()
-
+        tester = Tester(args, model_decoder, show_tensor_images)
+        print('start')
+        evaluater = tester.evaluate()
+        for i in range(10):
+            print('evaluate')
+            next(evaluater)
