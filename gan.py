@@ -87,7 +87,6 @@ class Generator(nn.Module):
         last.append(nn.Tanh())
         self.last = nn.Sequential(*last)
 
-
         self.input1d2d = nn.ConvTranspose1d(144, self.outsize, 1)
 
     def forward(self, z):
