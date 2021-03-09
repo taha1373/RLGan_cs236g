@@ -28,13 +28,8 @@
 ### Auto-Encoder
 In order to run test for GAN model:
 ```shell
-python gan_main.py --train False --pretrained_path './models/GAN_train/10000_G.pth' --batch_size 10 --g_conv_dim 16 --z_dim 2
+python AE_main.py
 ```
-This runs `evaulate` of `Tester` class from `gan_tester.py` with model saved at `'./models/GAN_train/10000_G.pth'`.
-
-important arguments
-
-`train` False to test GAN, `pretrained_path` as model path, `g_conv_dim` as number of channels in hidden layer of generator as a measure of model capacity, `z_dim` input dimension of GAN model.
 
 ### GAN
 In order to train for GAN model:
@@ -53,11 +48,6 @@ In order to run test for GAN model:
 ```shell
 python AE_main.py
 ```
-This runs `evaulate` of `Tester` class from `gan_tester.py` with model saved at `'./models/GAN_train/10000_G.pth'`.
-
-important arguments
-
-`train` False to test GAN, `pretrained_path` as model path, `g_conv_dim` as number of channels in hidden layer of generator as a measure of model capacity, `z_dim` input dimension of GAN model.
 
 ### GAN
 In order to run test for GAN model:
@@ -67,4 +57,5 @@ python gan_main.py --train False --pretrained_path './models/GAN_train/10000_G.p
 This runs `evaulate` of `Tester` class from `gan_tester.py` with model saved at `'./models/GAN_train/10000_G.pth'`.
 
 important arguments:
+
   `train` False to test GAN, `pretrained_path` as model path, `g_conv_dim` as number of channels in hidden layer of generator as a measure of model capacity, `z_dim` input dimension of GAN model.
