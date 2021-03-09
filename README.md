@@ -28,7 +28,7 @@
 ### Auto-Encoder
 In order to run test for GAN model:
 ```shell
-python AE_main.py
+python AE_main.py --train False
 ```
 
 ### GAN
