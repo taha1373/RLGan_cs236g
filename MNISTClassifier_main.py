@@ -13,10 +13,24 @@ from torchvision import datasets, transforms
 
 
 def str2bool(v):
+    """
+    Parameters
+    ----------
+    v : str
+        string of False or True 
+    """
     return v.lower() in ('true')
 
 
 def parse_args(args):
+    """
+    parse args
+
+    Parameters
+    ----------
+    args : 
+        passed arguments
+    """
     parser = argparse.ArgumentParser()
 
 
@@ -29,10 +43,10 @@ def parse_args(args):
     parser.add_argument('--numEpochs', default=10, type=int)
     parser.add_argument('--numLabels', default=10, type=int)
 
-    # Misc
+    # if test: ---train False
     parser.add_argument('--train', default=True, type=str2bool)
 
-    # save path:s
+    # Path
     parser.add_argument('--model_save_path', type=str, default='./models')
     parser.add_argument('--train_checkPoints', type=str, default='./checkPoints/MNISTClassifier_train')
     parser.add_argument('--eval_checkPoints', type=str, default='./checkPoints/MNISTClassifier_eval')

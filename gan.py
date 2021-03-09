@@ -62,7 +62,7 @@ class Generator(nn.Module):
     """Generator."""
     def __init__(self, out_size=64, z_dim=100, conv_dim=64):
         """
-        initialize Generator model based on self-attention gan (add ref)
+        initialize Generator model based on self-attention gan (https://arxiv.org/abs/1805.08318)
 
         Parameters
         ----------
@@ -76,7 +76,7 @@ class Generator(nn.Module):
         super(Generator, self).__init__()
         self.outsize = out_size
 
-        # layers use spectral norm based on (add ref) with deconvolution
+        # layers use spectral norm based on (https://arxiv.org/abs/1805.08318) with deconvolution
         layer1 = []
         layer2 = []
         layer3 = []
@@ -117,7 +117,6 @@ class Generator(nn.Module):
         self.last = nn.Sequential(*last)
 
         # get output with a fully connected layer
-
         self.input1d2d = nn.ConvTranspose1d(144, self.outsize, 1)
 
     def forward(self, z):

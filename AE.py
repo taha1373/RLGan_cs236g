@@ -17,15 +17,20 @@ import matplotlib.pyplot as plt
 
 
 class Encoder(nn.Module):
-    '''
-    Encoder Class
-    Values:
-    im_chan: the number of channels of the output image, a scalar
-            MNIST is black-and-white (1 channel), so that's our default.
-    hidden_dim: the inner dimension, a scalar
-    '''
-
+    """Encoder Class"""
     def __init__(self, im_chan=1, output_chan=32, hidden_dim=16):
+        """
+        initialize Encoder model
+
+        Parameters
+        ----------
+        im_chan : int
+            channel number of input image
+        output_chan : int
+            channel number of encoded output (latent space)
+        hidden_dim : int
+            channel number of output of first hidden block layer (a measure of model capacity)
+        """
         super(Encoder, self).__init__()
         self.z_dim = output_chan
         self.disc = nn.Sequential(
@@ -35,16 +40,23 @@ class Encoder(nn.Module):
         )
 
     def make_disc_block(self, input_channels, output_channels, kernel_size=4, stride=2, final_layer=False):
-        '''
+        """
         Function to return a sequence of operations corresponding to a encoder block of the VAE, 
         corresponding to a convolution, a batchnorm (except for in the last layer), and an activation
-        Parameters:
-        input_channels: how many channels the input feature representation has
-        output_channels: how many channels the output feature representation should have
-        kernel_size: the size of each convolutional filter, equivalent to (kernel_size, kernel_size)
-        stride: the stride of the convolution
-        final_layer: whether we're on the final layer (affects activation and batchnorm)
-        '''        
+        
+        Parameters
+        ----------
+        input_channels : int
+            how many channels the input feature representation has
+        output_channels : int 
+            how many channels the output feature representation should have
+        kernel_size : int 
+            the size of each convolutional filter, equivalent to (kernel_size, kernel_size)
+        stride : int 
+            the stride of the convolution
+        final_layer : bool 
+            whether we're on the final layer (affects activation and batchnorm)
+        """       
         if not final_layer:
             return nn.Sequential(
                 nn.Conv2d(input_channels, output_channels, kernel_size, stride),
@@ -57,30 +69,41 @@ class Encoder(nn.Module):
             )
 
     def forward(self, image):
-        '''
+        """
         Function for completing a forward pass of the Encoder: Given an image tensor, 
         returns a 1-dimension tensor representing fake/real.
-        Parameters:
-        image: a flattened image tensor with dimension (im_dim)
-        '''
+
+        Parameters
+        ----------
+        image: torch.Tensor
+            a flattened image tensor with dimension (im_dim)
+
+        Returns
+        -------
+        torch.Tensor
+            encoded result (latent space)
+
+        """
         disc_pred = self.disc(image)
         encoding = disc_pred.view(len(disc_pred), -1)
-        # The stddev output is treated as the log of the variance of the normal 
-        # distribution by convention and for numerical stability
         return encoding
 
 
 class Decoder(nn.Module):
-    '''
-    Decoder Class
-    Values:
-    z_dim: the dimension of the noise vector, a scalar
-    im_chan: the number of channels of the output image, a scalar
-            MNIST is black-and-white, so that's our default
-    hidden_dim: the inner dimension, a scalar
-    '''
-    
+    """Decoder Class"""
     def __init__(self, z_dim=32, im_chan=1, hidden_dim=64):
+        """
+        initialize Decoder model
+        
+        Parameters
+        ----------
+        z_dim:  int
+            the dimension of the noise vector
+        im_chan: int
+            channel number of the output image, MNIST is black-and-white, so that's our default
+        hidden_dim : int
+            channel number of input of last hidden block layer (a measure of model capacity)
+        """
         super(Decoder, self).__init__()
         self.z_dim = z_dim
         self.gen = nn.Sequential(
@@ -91,16 +114,23 @@ class Decoder(nn.Module):
         )
 
     def make_gen_block(self, input_channels, output_channels, kernel_size=3, stride=2, final_layer=False):
-        '''
+        """
         Function to return a sequence of operations corresponding to a Decoder block of the VAE, 
         corresponding to a transposed convolution, a batchnorm (except for in the last layer), and an activation
-        Parameters:
-        input_channels: how many channels the input feature representation has
-        output_channels: how many channels the output feature representation should have
-        kernel_size: the size of each convolutional filter, equivalent to (kernel_size, kernel_size)
-        stride: the stride of the convolution
-        final_layer: whether we're on the final layer (affects activation and batchnorm)
-        '''
+        
+        Parameters
+        ----------
+        input_channels : int
+            how many channels the input feature representation has
+        output_channels : int
+            how many channels the output feature representation should have
+        kernel_size : int
+            the size of each convolutional filter, equivalent to (kernel_size, kernel_size)
+        stride : int
+            the stride of the convolution
+        final_layer : bool
+            whether we're on the final layer (affects activation and batchnorm)
+        """
         if not final_layer:
             return nn.Sequential(
                 nn.ConvTranspose2d(input_channels, output_channels, kernel_size, stride),
@@ -114,52 +144,81 @@ class Decoder(nn.Module):
             )
 
     def forward(self, noise):
-        '''
+        """
         Function for completing a forward pass of the Decoder: Given a noise vector, 
         returns a generated image.
-        Parameters:
-        noise: a noise tensor with dimensions (batch_size, z_dim)
-        '''
+
+        Parameters
+        ----------
+        noise: torch.Tensor
+            a noise tensor with dimensions (batch_size, z_dim)
+
+        Returns
+        -------
+        torch.Tensor
+            recostructed result (decoded image)
+        """
         x = noise.view(len(noise), self.z_dim, 1, 1)
         return self.gen(x)
 
 
 
 class AutoEncoder(nn.Module):
-    '''
-    VAE Class
-    Values:
-    z_dim: the dimension of the noise vector, a scalar
-    im_chan: the number of channels of the output image, a scalar
-            MNIST is black-and-white, so that's our default
-    hidden_dim: the inner dimension, a scalar
-    '''
-    
+    """
+    Auto-Encoder Class
+    """
     def __init__(self, z_dim=32, im_chan=1, hidden_dim=64):
+        """
+        initialize Auto-Encoder model
+        
+        Parameters
+        ----------
+        z_dim:  int
+            the dimension of the noise vector
+        im_chan: int
+            channel number of the output image, MNIST is black-and-white, so that's our default
+        hidden_dim : int
+            channel number of hidden block layer (a measure of model capacity)
+        """
         super(AutoEncoder, self).__init__()
         self.z_dim = z_dim
         self.encode = Encoder(im_chan, z_dim)
         self.decode = Decoder(z_dim, im_chan)
 
     def forward(self, images):
-        '''
+        """
         Function for completing a forward pass of the Decoder: Given a noise vector, 
         returns a generated image.
-        Parameters:
-        images: an image tensor with dimensions (batch_size, im_chan, im_height, im_width)
-        Returns:
-        decoding: the autoencoded image
-        q_dist: the z-distribution of the encoding
-        '''
+        
+        Parameters
+        ----------
+        images : torch.Tensor 
+            an image tensor with dimensions (batch_size, im_chan, im_height, im_width)
+
+        Returns
+        -------
+        decoding : torch.Tensor
+            the reconstructed image
+        z_sample : torch.Tensor
+            encoded result
+        """
         z_sample = self.encode(images)
         decoding = self.decode(z_sample)
         return decoding, z_sample
 
 def show_tensor_images(image_tensor, num_images=25, size=(1, 28, 28)):
-    '''
-    Function for visualizing images: Given a tensor of images, number of images, and
-    size per image, plots and prints the images in an uniform grid.
-    '''
+    """
+    Function for visualizing images
+
+    Parameters
+    ----------
+    image_tensor : torch.Tensor
+        batch of images to visualize
+    num_images : int
+        number of images
+    size : tuple
+        size of images
+    """
     image_unflat = image_tensor.detach().cpu()
     image_grid = make_grid(image_unflat[:num_images], nrow=5)
     plt.axis('off')
@@ -168,6 +227,9 @@ def show_tensor_images(image_tensor, num_images=25, size=(1, 28, 28)):
 
 
 def kl_divergence_loss(q_dist):
+    """
+    to calculate kl divergence distance for loss
+    """
     return kl_divergence(
         q_dist, Normal(torch.zeros_like(q_dist.mean), torch.ones_like(q_dist.stddev))
     ).sum(-1)
