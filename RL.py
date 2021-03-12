@@ -1,9 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 import torch.nn.functional as F
-import utils
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -65,7 +63,16 @@ class Critic(nn.Module):
 
 
 class TD3(object):
-    def __init__(self, state_dim, action_dim, max_action):
+    def __init__(self, state_dim, action_dim, max_action, batch_size=100, discount=0.99, tau=0.005, policy_noise=0.2,
+                 noise_clip=0.5, policy_freq=2):
+
+        self.batch_size = batch_size
+        self.discount = discount
+        self.tau = tau
+        self.policy_noise = policy_noise
+        self.noise_clip = noise_clip
+        self.policy_freq = policy_freq
+
         self.actor = Actor(state_dim, action_dim, max_action).to(device)
         self.actor_target = Actor(state_dim, action_dim, max_action).to(device)
         self.actor_target.load_state_dict(self.actor.state_dict())
@@ -82,13 +89,12 @@ class TD3(object):
         state = torch.FloatTensor(state.reshape(1, -1)).to(device)
         return self.actor(state).cpu().data.numpy().flatten()
 
-    def train(self, replay_buffer, iterations, batch_size=100, discount=0.99, tau=0.005, policy_noise=0.2,
-              noise_clip=0.5, policy_freq=2):
+    def train(self, replay_buffer, iterations):
 
         for it in range(iterations):
 
             # Sample replay buffer
-            x, y, u, r, d = replay_buffer.sample(batch_size)
+            x, y, u, r, d = replay_buffer.sample(self.batch_size)
             state = torch.FloatTensor(x).to(device)
             action = torch.FloatTensor(u).to(device)
             next_state = torch.FloatTensor(y).to(device)
@@ -96,15 +102,15 @@ class TD3(object):
             reward = torch.FloatTensor(r).to(device)
 
             # Select action according to policy and add clipped noise
-            noise = torch.FloatTensor(u).data.normal_(0, policy_noise).to(device)
-            noise = noise.clamp(-noise_clip, noise_clip)
+            noise = torch.FloatTensor(u).data.normal_(0, self.policy_noise).to(device)
+            noise = noise.clamp(-self.noise_clip, self.noise_clip)
             next_action = (self.actor_target(next_state) + noise).clamp(-self.max_action, self.max_action)
             next_action = next_action.clamp(-self.max_action, self.max_action)
 
             # Compute the target Q value
             target_Q1, target_Q2 = self.critic_target(next_state, next_action)
             target_Q = torch.min(target_Q1, target_Q2)
-            target_Q = reward + (done * discount * target_Q).detach()
+            target_Q = reward + (done * self.discount * target_Q).detach()
 
             # Get current Q estimates
             current_Q1, current_Q2 = self.critic(state, action)
@@ -118,7 +124,7 @@ class TD3(object):
             self.critic_optimizer.step()
 
             # Delayed policy updates
-            if it % policy_freq == 0:
+            if it % self.policy_freq == 0:
 
                 # Compute actor loss
                 actor_loss = -self.critic.Q1(state, self.actor(state)).mean()
@@ -130,10 +136,10 @@ class TD3(object):
 
                 # Update the frozen target models
                 for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
-                    target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
+                    target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
 
                 for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
-                    target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
+                    target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
 
     def save(self, filename, directory):
         torch.save(self.actor.state_dict(), '%s/%s_actor.pth' % (directory, filename))
