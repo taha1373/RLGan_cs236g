@@ -1,19 +1,18 @@
 import argparse
-
+import sys
 import torch
-import torch.utils.data
 import torch.nn.parallel
-from models.lossess import ChamferLoss, NLL, MSE, Norm
+# from models.lossess import ChamferLoss, NLL, MSE, Norm
 
+from utils import AverageMeter, get_n_params
 
-import Datasets
-import models
-import torchvision.transforms as transforms
+from torch.utils.data import random_split
+from torch.utils.data.dataloader import DataLoader
+from torchvision import datasets, transforms
+from RL_trainer import Trainer
 
-import gpv_transforms
-import pc_transforms
-from visualizer import Visualizer
-from utils import save_checkpoint,AverageMeter,get_n_params
+from AE import AutoEncoder, show_tensor_images
+from gan import Generator, Discriminator
 
 
 def str2bool(v):
@@ -81,7 +80,6 @@ def parse_args(args):
                         default='',  # Add PAth to Incomplete Test Data set
                         help='Path to Incomplete Point Cloud Data Set')
     parser.add_argument('-s', '--split_value', default=0.9, help='Ratio of train and test data split')
-    parser.add_argument('-n', '--dataName', metavar='Data Set Name', default='shapenet', choices=dataset_names)
 
     # Arguments for Torch Data Loader
     parser.add_argument('-b', '--batch_size', type=int, default=1, help='input batch size')
@@ -145,138 +143,77 @@ def parse_args(args):
     # GPU settings
     parser.add_argument('--gpu_id', type=int, default=0, help='gpu ids: e.g. 0, 1. -1 is no GPU')
 
-    return parser.parse_args()
+    return parser.parse_args(args)
 
 
-def main(args,vis_Valid,vis_Valida):
+def main(args):
     """ Transforms/ Data Augmentation Tec """
-    co_transforms = pc_transforms.Compose([
-        #  pc_transforms.Delete(num_points=1466)
-          pc_transforms.Jitter_PC(sigma=0.01,clip=0.05),
-         # pc_transforms.Scale(low=0.9,high=1.1),
-        #   pc_transforms.Shift(low=-0.1,high=0.1),
-        #  pc_transforms.Random_Rotate(),
-        #  pc_transforms.Random_Rotate_90(),
-
-        # pc_transforms.Rotate_90(args,axis='x',angle=-1.0),# 1.0,2,3,4
-        # pc_transforms.Rotate_90(args, axis='z', angle=2.0),
-        # pc_transforms.Rotate_90(args, axis='y', angle=2.0),
-        # pc_transforms.Rotate_90(args, axis='shape_complete') TODO this is essential for angela data set
-    ])
-
-    input_transforms = transforms.Compose([
-
-        pc_transforms.ArrayToTensor(),
-        #   transforms.Normalize(mean=[0.5,0.5],std=[1,1])
-    ])
-
-    target_transforms = transforms.Compose([
-        pc_transforms.ArrayToTensor(),
-        #  transforms.Normalize(mean=[0.5, 0.5], std=[1, 1])
-    ])
+    transform = transforms.Compose([transforms.ToTensor(), ])
 
     """-----------------------------------------------Data Loader----------------------------------------------------"""
+    # Train datasets
+    train_valid_dataset = datasets.MNIST('.', train=True, transform=transform, download=True)
+    train_valid_size = len(train_valid_dataset)
+    valid_size = int(0.2 * train_valid_size)
+    train_size = train_valid_size - valid_size
+    train_dataset, val_dataset = random_split(train_valid_dataset, [train_size, valid_size])
+    train_loader = DataLoader(train_dataset, shuffle=True, batch_size=args.batch_size)
+    valid_loader = DataLoader(val_dataset, shuffle=True, batch_size=args.batch_size)
 
-    if (args.net_name == 'auto_encoder'):
-        [train_dataset, valid_dataset] = Datasets.__dict__[args.dataName](input_root=args.data,
-                                                                          target_root=None,
-                                                                          split=args.split_value,
-                                                                          net_name=args.net_name,
-                                                                          input_transforms=input_transforms,
-                                                                          target_transforms=target_transforms,
-                                                                          co_transforms=co_transforms)
-        [test_dataset,_] = Datasets.__dict__[args.dataName](input_root=args.dataIncomplete,
-                                                                          target_root=None,
-                                                                          split=1.0,
-                                                                          net_name=args.net_name,
-                                                                          input_transforms=input_transforms,
-                                                                          target_transforms=target_transforms,
-                                                                          co_transforms=co_transforms)
-
-
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size,
-                                               num_workers=args.workers,
-                                               shuffle=True,
-                                               pin_memory=True)
-    valid_loader = torch.utils.data.DataLoader(valid_dataset,
-                                               batch_size=args.batch_size,
-                                               num_workers=args.workers,
-                                               shuffle=False,
-                                               pin_memory=True)
-
-    test_loader = torch.utils.data.DataLoader(test_dataset,
-                                               batch_size=1,
-                                               num_workers=args.workers,
-                                               shuffle=False,
-                                               pin_memory=True)
-
+    # Test datasets
+    test_dataset = datasets.MNIST('.', train=False, transform=transform, download=True)
+    test_loader = DataLoader(test_dataset, shuffle=True, batch_size=args.batch_size)
 
     """----------------Model Settings-----------------------------------------------"""
 
-    print('Encoder Model: {0}, Decoder Model : {1}'.format(args.model_encoder,args.model_decoder))
-    print('GAN Model Generator:{0} & Discriminator : {1} '.format(args.model_generator,args.model_discriminator))
+    print('Encoder Model: {0}, Decoder Model : {1}'.format(args.model_encoder, args.model_decoder))
+    print('GAN Model Generator:{0} & Discriminator : {1} '.format(args.model_generator, args.model_discriminator))
 
+    ae = AutoEncoder()
+    ae.load_state_dict(torch.load('models/ae.pth'))
+    ae.to(args.device)
+    ae.eval()
 
-    network_data_AE = torch.load(args.pretrained_enc_dec)
+    g_model = Generator()
+    g_model.load_state_dict(torch.load('models/G.pth'))
+    g_model.to(args.device)
+    g_model.eval()
 
-    network_data_G = torch.load(args.pretrained_G)
+    d_model = Discriminator()
+    d_model.load_state_dict(torch.load('models/D.pth'))
+    d_model.to(args.device)
+    d_model.eval()
 
-    network_data_D = torch.load(args.pretrained_D)
-
-    model_encoder = models.__dict__[args.model_encoder](args, num_points=2048, global_feat=True,
-                                                        data=network_data_AE, calc_loss=False).cuda()
-    model_decoder = models.__dict__[args.model_decoder](args, data=network_data_AE).cuda()
-
-    model_G = models.__dict__[args.model_generator](args, data=network_data_G).cuda()
-
-    model_D = models.__dict__[args.model_discriminator](args, data=network_data_D).cuda()
-
-
-
-    params = get_n_params(model_encoder)
+    params = get_n_params(ae.encode)
     print('| Number of Encoder parameters [' + str(params) + ']...')
 
-    params = get_n_params(model_decoder)
+    params = get_n_params(ae.decode)
     print('| Number of Decoder parameters [' + str(params) + ']...')
 
-
-
-    chamfer = ChamferLoss(args)
-    nll = NLL()
-    mse = MSE(reduction = 'elementwise_mean')
-    norm = Norm(dims=args.z_dim)
+    # chamfer = ChamferLoss(args)
+    # nll = NLL()
+    # mse = MSE(reduction='elementwise_mean')
+    # norm = Norm(dims=args.z_dim)
 
     epoch = 0
 
-
-    test_loss = trainRL(train_loader, valid_loader,test_loader, model_encoder, model_decoder, model_G,model_D, epoch, args, chamfer,nll, mse, norm, vis_Valid,
-                     vis_Valida)
-    print('Average Loss :{}'.format(test_loss))
+    if args.train:
+        trainer = Trainer(args, train_loader, valid_loader, test_loader, ae.encode, ae.decode, g_model, d_model)
+        trainer.train()
+    else:
+        raise NotImplementedError('test not yet implemented')
+    # print('Average Loss :{}'.format(test_loss))
 
 
 if __name__ == '__main__':
-    args = get_parameters()
-    args.device = torch.device(
-        "cuda:%d" % (args.gpu_id) if torch.cuda.is_available() else "cpu")  # for selecting device for chamfer loss
+    args = sys.argv[1:]
+    args = parse_args(args)
+
+    args.device = torch.device("cuda:%d" % args.gpu_id if torch.cuda.is_available() else "cpu")
 
     torch.cuda.set_device(args.gpu_id)
     print('Using TITAN XP GPU # :', torch.cuda.current_device())
 
     print(args)
 
-    """-------------------------------------------------Visualer Initialization-------------------------------------"""
-
-    visualizer = Visualizer(args)
-
-    args.display_id = args.display_id + 10
-    args.name = 'Validation'
-    vis_Valid = Visualizer(args)
-    vis_Valida = []
-    args.display_id = args.display_id + 10
-
-    for i in range(1, 15):
-        vis_Valida.append(Visualizer(args))
-        args.display_id = args.display_id + 10
-
-
-    main(args,vis_Valid,vis_Valida)
+    main(args)
