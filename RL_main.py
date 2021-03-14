@@ -13,6 +13,8 @@ from RL_trainer import Trainer
 
 from AE import AutoEncoder, show_tensor_images
 from gan import Generator, Discriminator
+from gan_main import toLatentTsfm
+from MNISTClassifier import Classifier
 
 
 def str2bool(v):
@@ -82,7 +84,7 @@ def parse_args(args):
     parser.add_argument('-s', '--split_value', default=0.9, help='Ratio of train and test data split')
 
     # Arguments for Torch Data Loader
-    parser.add_argument('-b', '--batch_size', type=int, default=1, help='input batch size')
+    parser.add_argument('-b', '--batch_size', type=int, default=10, help='input batch size')
     parser.add_argument('-w', '--workers', type=int, default=8, help='Set the number of workers')
 
     # Hyper parameters for RL
@@ -92,6 +94,7 @@ def parse_args(args):
     parser.add_argument("--state_dim", default=128, type=int)  # State Dimesnions #TODO equal to GFV dims
     parser.add_argument("--max_action", default=10, type=int)  # For Normal Distribution 2.5 is feasible ?
 
+    parser.add_argument("--weight", default=10, type=float)  # How often (time steps) we evaluate
     parser.add_argument("--start_timesteps", default=1e4,  # 1e4
                         type=int)  # How many time steps purely random policy is run for
     parser.add_argument("--eval_freq", default=5e3, type=float)  # How often (time steps) we evaluate
@@ -108,9 +111,10 @@ def parse_args(args):
 
     # Model Hype-Parameter
     parser.add_argument('--image_size', default=32, type=int)  # TODO original value 64
-    parser.add_argument('--z_dim', type=int, default=1)  #
-    parser.add_argument('--g_conv_dim', type=int, default=64)
-    parser.add_argument('--d_conv_dim', type=int, default=64)
+    parser.add_argument('--l_size', default=32, type=int)
+    parser.add_argument('--z_dim', type=int, default=2)
+    parser.add_argument('--g_conv_dim', type=int, default=16)
+    parser.add_argument('--d_conv_dim', type=int, default=16)
 
     # Model Settings
     parser.add_argument('-nt', '--net_name', default='auto_encoder', help='Chose The name of your network',
@@ -143,13 +147,18 @@ def parse_args(args):
     # GPU settings
     parser.add_argument('--gpu_id', type=int, default=0, help='gpu ids: e.g. 0, 1. -1 is no GPU')
 
+    # if test: ---train False
+    parser.add_argument('--train', type=str2bool, default=True)
+
     return parser.parse_args(args)
 
 
 def main(args):
     """ Transforms/ Data Augmentation Tec """
-    transform = transforms.Compose([transforms.ToTensor(), ])
-
+    ae = AutoEncoder()
+    ae.load_state_dict(torch.load('models/AE_train/AE_final.pth'))
+    ae.to(args.device)
+    transform = transforms.Compose([transforms.ToTensor(), toLatentTsfm(ae, args.device)])
     """-----------------------------------------------Data Loader----------------------------------------------------"""
     # Train datasets
     train_valid_dataset = datasets.MNIST('.', train=True, transform=transform, download=True)
@@ -169,18 +178,18 @@ def main(args):
     print('Encoder Model: {0}, Decoder Model : {1}'.format(args.model_encoder, args.model_decoder))
     print('GAN Model Generator:{0} & Discriminator : {1} '.format(args.model_generator, args.model_discriminator))
 
-    ae = AutoEncoder()
-    ae.load_state_dict(torch.load('models/ae.pth'))
-    ae.to(args.device)
-    ae.eval()
+    cl = Classifier()
+    cl.load_state_dict(torch.load('models/MNISTclassifier_train/MNISTclassifier_final.pth'))
+    cl.to(args.device)
+    cl.eval()
 
-    g_model = Generator()
-    g_model.load_state_dict(torch.load('models/G.pth'))
+    g_model = Generator(args.l_size, args.z_dim, args.g_conv_dim)
+    g_model.load_state_dict(torch.load('models/GAN_train/final_G.pth'))
     g_model.to(args.device)
     g_model.eval()
 
-    d_model = Discriminator()
-    d_model.load_state_dict(torch.load('models/D.pth'))
+    d_model = Discriminator(args.l_size, args.d_conv_dim)
+    d_model.load_state_dict(torch.load('models/GAN_train/final_D.pth'))
     d_model.to(args.device)
     d_model.eval()
 
@@ -198,7 +207,7 @@ def main(args):
     epoch = 0
 
     if args.train:
-        trainer = Trainer(args, train_loader, valid_loader, test_loader, ae.encode, ae.decode, g_model, d_model)
+        trainer = Trainer(args, train_loader, valid_loader, test_loader, ae.encode, ae.decode, g_model, d_model, cl)
         trainer.train()
     else:
         raise NotImplementedError('test not yet implemented')

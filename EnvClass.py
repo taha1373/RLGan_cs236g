@@ -5,10 +5,9 @@ from torch.autograd.variable import Variable
 import os
 
 
-
 class Env(object):
-    def __init__(self, args,model_G,model_classifier,model_decoder):
-        super(Env,self).__init__()
+    def __init__(self, args, model_G, model_classifier, model_decoder):
+        super(Env, self).__init__()
 
         # generator model
         self.generator = model_G
@@ -22,7 +21,17 @@ class Env(object):
 
         self.device = args.device
 
-    def forward(self,action,episodeTarget):
+    def reset(self):
+        pass
+
+    def agent_input(self, input):
+        with torch.no_grad():
+            input = input.cuda(async=True)
+            input_var = Variable(input, requires_grad=True)
+            out = input_var.detach().cpu().numpy().squeeze()
+        return out
+
+    def forward(self, action, episodeTarget):
 
         # episodeTarget: the number that the RL agent is trying to find
 

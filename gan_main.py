@@ -117,7 +117,7 @@ if __name__ == "__main__":
 
     # latent_loader auto-encoder used to create data loader for latent space of mnist
     ae = AutoEncoder()
-    ae.load_state_dict(torch.load('models/ae.pth'))
+    ae.load_state_dict(torch.load('models/AE_train/AE_final.pth'))
     ae.to(args.device)
     transform = transforms.Compose([transforms.ToTensor(), toLatentTsfm(ae, args.device)])
     mnistEncoded = datasets.MNIST('.', train=True, transform=transform)

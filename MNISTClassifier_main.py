@@ -46,14 +46,10 @@ def parse_args(args):
     # if test: ---train False
     parser.add_argument('--train', default=True, type=str2bool)
 
-<<<<<<< HEAD
     # epoch model to load 
     parser.add_argument('--pretrained_num', type=int, default=None)
 
     # save path:s
-=======
-    # Path
->>>>>>> 3f51161fb6afda5b00f3231c7345b34e6ce5f53e
     parser.add_argument('--model_save_path', type=str, default='./models')
     # parser.add_argument('--train_checkPoints', type=str, default='./checkPoints/MNISTClassifier_train')
     # parser.add_argument('--eval_checkPoints', type=str, default='./checkPoints/MNISTClassifier_eval')
