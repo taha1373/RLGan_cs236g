@@ -17,7 +17,18 @@ import matplotlib.pyplot as plt
 
 
 class Trainer(object):
-    def __init__(self, args,dataLoader):
+    """Classifier trainer"""
+    def __init__(self, args, dataLoader):
+        """
+        initialize Classifier trainer
+
+        Parameters
+        ----------
+        args : dict
+            args dictionary look at :func: `~MNISTClassifier_main.parse_args`
+        dataloader : iterator
+            generator for data (e.g. mnist data loader)
+        """
 
         self.lr = args.lr
         self.beta_1 = args.beta_1
@@ -46,6 +57,9 @@ class Trainer(object):
         self.buildModel()
 
     def train(self):
+        """
+        trains classifier
+        """
         cur_step = 0
         display_step = 20
         classifier_losses = []
@@ -54,6 +68,7 @@ class Trainer(object):
                 real = real.to(self.device)
                 labels = one_hot(labels.to(self.device)).float()
 
+                # Backward + Optimize
                 self.class_opt.zero_grad()
                 class_pred = self.classifier(real)
                 class_loss = self.criterion(class_pred, labels)
@@ -65,14 +80,9 @@ class Trainer(object):
                 if cur_step % display_step == 0 and cur_step > 0:
                     class_mean = sum(classifier_losses[-display_step:]) / display_step
                     print(f"Step {cur_step}: Classifier loss: {class_mean}")
-                    # step_bins = 20
-                    # x_axis = sorted([i * step_bins for i in range(len(classifier_losses) // step_bins)] * step_bins)
-                    # sns.lineplot(x_axis, classifier_losses[:len(x_axis)], label="Classifier Loss")
-    #                 plt.legend()
-                    # plt.show()
-                    # torch.save({"classifier": self.classifier.state_dict()}, filename)
                 cur_step += 1
 
+<<<<<<< HEAD
             torch.save(self.classifier.state_dict(),os.path.join(self.model_save_path,'MNISTclassifier_{}.pth'.format(epoch+1)))
 
         # torch.save(self.ae.state_dict(),os.path.join(self.model_save_path, 'MNISTclassifier.pth'))
@@ -80,6 +90,20 @@ class Trainer(object):
     def test(self,test_loader):
         model_load_path = os.path.join(self.model_save_path, 'MNISTclassifier_{}.pth'.format(self.pretrained_num))
         self.classifier.load_state_dict(torch.load(model_load_path, map_location=torch.device(self.device)))
+=======
+        # model saving
+        # torch.save(self.ae.state_dict(),os.path.join(self.model_save_path, 'MNISTclassifier.pth'))
+
+    def test(self,test_loader):
+        """
+        test classifier
+        
+        Parameters
+        ----------
+        test_loader : iterator
+            generator for test data (e.g. mnist data loader)
+        """
+>>>>>>> 3f51161fb6afda5b00f3231c7345b34e6ce5f53e
         self.classifier.eval()
         # test_loss = 0
         correct = 0
@@ -100,6 +124,9 @@ class Trainer(object):
 
 
     def buildModel(self):
+        """
+        builds auto-encoder model for training
+        """
         self.classifier = Classifier().to(self.device)
         self.class_opt = torch.optim.Adam(self.classifier.parameters(), lr=self.lr, betas=(self.beta_1,self.beta_2))
         self.criterion = nn.BCEWithLogitsLoss()
