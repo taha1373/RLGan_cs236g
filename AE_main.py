@@ -29,7 +29,7 @@ def parse_args(args):
     # Misc
     parser.add_argument('--train', default=True, type=str2bool)
 
-    # save path:s
+    # save paths
     parser.add_argument('--model_save_path', type=str, default='./models')
     parser.add_argument('--train_checkPoints', type=str, default='./checkPoints/AE_train')
     parser.add_argument('--eval_checkPoints', type=str, default='./checkPoints/AE_eval')

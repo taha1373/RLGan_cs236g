@@ -25,12 +25,22 @@ class Trainer(object):
         self.numLabels = args.numLabels
         self.device = args.device
         self.model_save_path = args.model_save_path
-        self.train_checkPoints = args.train_checkPoints
+        # self.train_checkPoints = args.train_checkPoints
         self.numEpochs = args.numEpochs
         self.dataLoader = dataLoader
 
         self.train_losses = []
         self.train_counter = []
+
+        # making saving directory for sample results for generator, model saving and log saving
+        # self.log_path = os.path.join(args.log_dir, 'MNISTclassifier_train')
+        self.model_save_path = os.path.join(args.model_save_path, 'MNISTclassifier_train')
+        # self.result_path = os.path.join(args.result_dir, 'MNISTclassifier_train')
+        # os.makedirs(self.log_path, exist_ok=True)
+        os.makedirs(self.model_save_path, exist_ok=True)
+        # os.makedirs(self.result_path, exist_ok=True)
+
+        self.pretrained_num = args.pretrained_num
 
 
         self.buildModel()
@@ -63,9 +73,13 @@ class Trainer(object):
                     # torch.save({"classifier": self.classifier.state_dict()}, filename)
                 cur_step += 1
 
+            torch.save(self.classifier.state_dict(),os.path.join(self.model_save_path,'MNISTclassifier_{}.pth'.format(epoch+1)))
+
         # torch.save(self.ae.state_dict(),os.path.join(self.model_save_path, 'MNISTclassifier.pth'))
 
     def test(self,test_loader):
+        model_load_path = os.path.join(self.model_save_path, 'MNISTclassifier_{}.pth'.format(self.pretrained_num))
+        self.classifier.load_state_dict(torch.load(model_load_path, map_location=torch.device(self.device)))
         self.classifier.eval()
         # test_loss = 0
         correct = 0

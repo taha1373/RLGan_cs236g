@@ -32,10 +32,13 @@ def parse_args(args):
     # Misc
     parser.add_argument('--train', default=True, type=str2bool)
 
+    # epoch model to load 
+    parser.add_argument('--pretrained_num', type=int, default=None)
+
     # save path:s
     parser.add_argument('--model_save_path', type=str, default='./models')
-    parser.add_argument('--train_checkPoints', type=str, default='./checkPoints/MNISTClassifier_train')
-    parser.add_argument('--eval_checkPoints', type=str, default='./checkPoints/MNISTClassifier_eval')
+    # parser.add_argument('--train_checkPoints', type=str, default='./checkPoints/MNISTClassifier_train')
+    # parser.add_argument('--eval_checkPoints', type=str, default='./checkPoints/MNISTClassifier_eval')
 
     return parser.parse_args(args)
 
@@ -58,9 +61,9 @@ if __name__ == "__main__":
     if(args.train):
         trainer = Trainer(args,train_dataloader)
         trainer.train()
-        trainer.test(test_dataloader)
     else:
-        pass
+        trainer = Trainer(args,test_dataloader)
+        trainer.test(test_dataloader)
         # # For evaluating the model
         # ae = AutoEncoder().to(args.device)
         # ae.load_state_dict(torch.load(os.path.join(args.model_save_path, 'ae.pth'), map_location=torch.device(args.device)))
