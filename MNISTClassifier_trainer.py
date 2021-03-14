@@ -82,28 +82,22 @@ class Trainer(object):
                     print(f"Step {cur_step}: Classifier loss: {class_mean}")
                 cur_step += 1
 
-<<<<<<< HEAD
             torch.save(self.classifier.state_dict(),os.path.join(self.model_save_path,'MNISTclassifier_{}.pth'.format(epoch+1)))
 
         # torch.save(self.ae.state_dict(),os.path.join(self.model_save_path, 'MNISTclassifier.pth'))
 
-    def test(self,test_loader):
-        model_load_path = os.path.join(self.model_save_path, 'MNISTclassifier_{}.pth'.format(self.pretrained_num))
-        self.classifier.load_state_dict(torch.load(model_load_path, map_location=torch.device(self.device)))
-=======
-        # model saving
-        # torch.save(self.ae.state_dict(),os.path.join(self.model_save_path, 'MNISTclassifier.pth'))
-
-    def test(self,test_loader):
+    def test(self, test_loader):
         """
         test classifier
-        
+
         Parameters
         ----------
         test_loader : iterator
             generator for test data (e.g. mnist data loader)
         """
->>>>>>> 3f51161fb6afda5b00f3231c7345b34e6ce5f53e
+        model_load_path = os.path.join(self.model_save_path, 'MNISTclassifier_{}.pth'.format(self.pretrained_num))
+        self.classifier.load_state_dict(torch.load(model_load_path, map_location=torch.device(self.device)))
+
         self.classifier.eval()
         # test_loss = 0
         correct = 0
