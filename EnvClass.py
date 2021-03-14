@@ -15,11 +15,10 @@ class Env(object):
         # classifier model for caluclating the reward
         self.classifier = model_classifier
         # decoder model
-        self.encoder = model_encoder
         self.decoder = model_decoder
 
         # weight of the reward
-        self.weight = weight
+        self.weight = args.weight
 
         self.device = args.device
 
