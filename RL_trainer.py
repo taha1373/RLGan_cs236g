@@ -203,6 +203,7 @@ class Trainer(object):
 
                     self.env.reset()
                     test_policy(self.policy, self.test_loader, self.env, saveFig=True, t=total_timesteps)
+                    print(self.replay_buffer)
 
                     self.env.reset()
 
@@ -232,7 +233,7 @@ class Trainer(object):
                 if self.expl_noise != 0:
                     # Taha changed:
                     # action = (action + np.random.normal(0, self.expl_noise, size=self.z_dim)).clip(
-                    #     -self.max_action * np.ones(self.z_dim, ), self.max_action * np.ones(self.z_dim, ))
+                    #     -self.max_action * np.ones(self.z_dim, ), self.max_action * np.ones(self.z_dim,))
                     action = np.float32(action)
                 action_t = torch.tensor(action).cuda().unsqueeze(dim=0)
             # Perform action
