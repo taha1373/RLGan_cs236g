@@ -86,8 +86,13 @@ class TD3(object):
         self.max_action = max_action
 
     def select_action(self, state):
-        state = torch.FloatTensor(state.reshape(1, -1)).to(device)
-        return self.actor(state).cpu().data.numpy().flatten()
+        # Taha Changed:
+        #### why did he do this ??????????
+        # state = torch.FloatTensor(state.reshape(1, -1)).to(device)
+        state = torch.FloatTensor(state).to(device)
+        # Taha Changed:
+        # return self.actor(state).cpu().data.numpy().flatten()
+        return self.actor(state).cpu().data.numpy()
 
     def train(self, replay_buffer, iterations):
 

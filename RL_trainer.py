@@ -34,8 +34,10 @@ def evaluate_policy(policy, valid_loader, env, eval_episodes=6, render=False):
         try:
             input = next(dataloader_iterator)[0]
         except:
+            # Taha Changed:
             dataloader_iterator = iter(valid_loader)
-            input = next(dataloader_iterator)[0]
+            input, label = next(dataloader_iterator)
+            episodeTarget = (label+1)%10
 
         # data_iter = iter(valid_loader)
         # input = data_iter.next()
@@ -47,7 +49,9 @@ def evaluate_policy(policy, valid_loader, env, eval_episodes=6, render=False):
             # Action By Agent and collect reward
             action = policy.select_action(np.array(obs))
             action = torch.tensor(action).cuda().unsqueeze(dim=0)
-            new_state, _, reward, done, _ = env(input, action, render=render, disp=True)
+            # Taha Changed:
+            # new_state, _, reward, done, _ = env(input, action, render=render, disp=True)
+            new_state, reward, done = env(input, action,episodeTarget)
             avg_reward += reward
 
         if i + 1 >= eval_episodes:
@@ -71,8 +75,13 @@ def test_policy(policy, valid_loader, env, eval_episodes=12, render=True):
         try:
             input = next(dataloader_iterator)[0]
         except:
+            # dataloader_iterator = iter(valid_loader)
+            # input = next(dataloader_iterator)[0]
+            # Taha Changed:
             dataloader_iterator = iter(valid_loader)
-            input = next(dataloader_iterator)[0]
+            input, label = next(dataloader_iterator)
+            episodeTarget = (label+1)%10
+
 
         # data_iter = iter(valid_loader)
         # input = data_iter.next()
@@ -84,7 +93,9 @@ def test_policy(policy, valid_loader, env, eval_episodes=12, render=True):
             # Action By Agent and collect reward
             action = policy.select_action(np.array(obs))
             action = torch.tensor(action).cuda().unsqueeze(dim=0)
-            new_state, _, reward, done, _ = env(input, action, render=render, disp=True)
+            # Taha Changed:
+            # new_state, _, reward, done, _ = env(input, action, render=render, disp=True)
+            new_state, reward, done = env(input, action,episodeTarget)
             avg_reward += reward
 
         if i + 1 >= eval_episodes:
@@ -97,6 +108,154 @@ def test_policy(policy, valid_loader, env, eval_episodes=12, render=True):
     print("---------------------------------------")
 
     return avg_reward
+
+
+class Trainer(object):
+    """RL trainer"""
+    def __init__(self, args, train_loader, valid_loader, test_loader, model_encoder, model_decoder, model_g, model_d,
+                 model_classifier):
+        """
+
+        Parameters
+        ----------
+        args :
+        train_loader :
+        valid_loader :
+        test_loader :
+        model_encoder :
+        model_decoder :
+        model_g :
+        model_d :
+
+        Returns
+        -------
+
+        """
+        self.train_loader = train_loader
+        self.valid_loader = valid_loader
+        self.test_loader = test_loader
+
+        self.epoch_size = len(self.valid_loader)
+        self.max_timesteps = args.max_timesteps
+
+        self.batch_size = args.batch_size
+        self.eval_freq = args.eval_freq
+        self.save_models = args.save_models
+        self.start_timesteps = args.start_timesteps
+        self.max_episodes_steps = args.max_episodes_steps
+
+        self.z_dim = args.z_dim
+        self.max_action = args.max_action
+        self.expl_noise = args.expl_noise
+
+        self.encoder = model_encoder
+        self.decoder = model_decoder
+        self.G = model_g
+        self.D = model_d
+        self.model_classifier = model_classifier
+
+        self.env = Env(args, self.G, self.model_classifier, self.decoder)
+
+        self.state_dim = args.state_dim
+        self.action_dim = args.z_dim
+        self.max_action = args.max_action
+
+        self.policy = TD3(self.state_dim, self.action_dim, self.max_action, self.batch_size, args.discount, args.tau,
+                          args.policy_noise, args.noise_clip, args.policy_freq)
+
+        self.evaluations = [evaluate_policy(self.policy, self.valid_loader, self.env)]
+
+        self.replay_buffer = ReplayBuffer()
+
+    def train(self):
+
+        total_timesteps = 0
+        timesteps_since_eval = 0
+        episode_num = 0
+        done = True
+        self.env.reset()
+
+        while total_timesteps < self.max_timesteps:
+
+            if done:
+
+                try:
+                    input = next(dataloader_iterator)[0]
+                except:
+                    # dataloader_iterator = iter(self.train_loader)
+                    # input = next(dataloader_iterator)[0]
+                    # Taha Changed:
+                    dataloader_iterator = iter(self.train_loader)
+                    input, label = next(dataloader_iterator)
+                    episodeTarget = (label+1)%10
+
+                if total_timesteps != 0:
+                    self.policy.train(self.replay_buffer, episode_timesteps)
+                # Evaluate episode
+                if timesteps_since_eval >= self.eval_freq:
+                    timesteps_since_eval %= self.eval_freq
+
+                    self.evaluations.append(evaluate_policy(self.policy, self.valid_loader, self.env, render=False))
+
+                    if self.save_models:
+                        self.policy.save('RL.pth', directory="./models")
+
+                    self.env.reset()
+                    test_policy(self.policy, self.test_loader, self.env, render=True)
+
+                    self.env.reset()
+
+                # Reset environment
+                # obs = env.reset()
+                done = False
+                episode_reward = 0
+                episode_timesteps = 0
+                episode_num += 1
+
+            # Select action randomly or according to policy
+            obs = self.env.agent_input(input)
+
+            if total_timesteps < self.start_timesteps:
+                #  action_t = torch.rand(args.batch_size, args.z_dim) # TODO checked rand instead of randn
+                action_t = torch.FloatTensor(self.batch_size, self.z_dim).uniform_(-self.max_action, self.max_action)
+                action = action_t.detach().cpu().numpy().squeeze(0)
+
+            # obs, _, _, _, _ = env(input, action_t)
+            else:
+
+                # action_rand = torch.randn(args.batch_size, args.z_dim)
+                #
+                # obs, _, _, _, _ = env( input, action_rand)
+
+                action = self.policy.select_action(np.array(obs))
+                if self.expl_noise != 0:
+                    action = (action + np.random.normal(0, self.expl_noise, size=self.z_dim)).clip(
+                        -self.max_action * np.ones(self.z_dim, ), self.max_action * np.ones(self.z_dim, ))
+                    action = np.float32(action)
+                action_t = torch.tensor(action).cuda().unsqueeze(dim=0)
+            # Perform action
+
+            # env.render()
+
+            # Taha Changed:
+            # new_obs, _, reward, done, _ = self.env(input, action_t, disp=True)
+            new_obs, reward, done = self.env(input, action_t,episodeTarget)
+
+            # new_obs, reward, done, _ = env.step(action)
+            done_bool = 0 if episode_timesteps + 1 == self.max_episodes_steps else float(done)
+            episode_reward += reward
+
+            # Store data in replay buffer
+            self.replay_buffer.add((obs, new_obs, action, reward, done_bool))
+
+            obs = new_obs
+
+            episode_timesteps += 1
+            total_timesteps += 1
+            timesteps_since_eval += 1
+
+            if(total_timesteps%1e3 == 0):
+                print("{}/{}".format(total_timesteps,self.max_timesteps))
 
 
 # class envs(nn.Module):
@@ -236,144 +395,3 @@ def test_policy(policy, valid_loader, env, eval_episodes=12, render=True):
 #         done = True
 #         state = out_G.detach().cpu().data.numpy().squeeze()
 #         return state, _, reward, done, self.lossess.avg
-
-
-class Trainer(object):
-    """RL trainer"""
-    def __init__(self, args, train_loader, valid_loader, test_loader, model_encoder, model_decoder, model_g, model_d,
-                 model_classifier):
-        """
-
-        Parameters
-        ----------
-        args :
-        train_loader :
-        valid_loader :
-        test_loader :
-        model_encoder :
-        model_decoder :
-        model_g :
-        model_d :
-
-        Returns
-        -------
-
-        """
-        self.train_loader = train_loader
-        self.valid_loader = valid_loader
-        self.test_loader = test_loader
-
-        self.epoch_size = len(self.valid_loader)
-        self.max_timesteps = args.max_timesteps
-
-        self.batch_size = args.batch_size
-        self.eval_freq = args.eval_freq
-        self.save_models = args.save_models
-        self.start_timesteps = args.start_timesteps
-        self.max_episodes_steps = args.max_episodes_steps
-
-        self.z_dim = args.z_dim
-        self.max_action = args.max_action
-        self.expl_noise = args.expl_noise
-
-        self.encoder = model_encoder
-        self.decoder = model_decoder
-        self.G = model_g
-        self.D = model_d
-        self.model_classifier = model_classifier
-
-        self.env = Env(args, self.G, self.model_classifier, self.decoder)
-
-        self.state_dim = args.state_dim
-        self.action_dim = args.z_dim
-        self.max_action = args.max_action
-
-        self.policy = TD3(self.state_dim, self.action_dim, self.max_action, self.batch_size, args.discount, args.tau,
-                          args.policy_noise, args.noise_clip, args.policy_freq)
-
-        self.evaluations = [evaluate_policy(self.policy, self.valid_loader, self.env)]
-
-        self.replay_buffer = ReplayBuffer()
-
-    def train(self):
-
-        total_timesteps = 0
-        timesteps_since_eval = 0
-        episode_num = 0
-        done = True
-        self.env.reset()
-
-        while total_timesteps < self.max_timesteps:
-
-            if done:
-
-                try:
-                    input = next(dataloader_iterator)[0]
-                except:
-                    dataloader_iterator = iter(self.train_loader)
-                    input = next(dataloader_iterator)[0]
-
-                if total_timesteps != 0:
-                    self.policy.train(self.replay_buffer, episode_timesteps)
-                # Evaluate episode
-                if timesteps_since_eval >= self.eval_freq:
-                    timesteps_since_eval %= self.eval_freq
-
-                    self.evaluations.append(evaluate_policy(self.policy, self.valid_loader, self.env, render=False))
-
-                    if self.save_models:
-                        self.policy.save('RL.pth', directory="./models")
-
-                    self.env.reset()
-                    test_policy(self.policy, self.test_loader, self.env, render=True)
-
-                    self.env.reset()
-
-                # Reset environment
-                # obs = env.reset()
-                done = False
-                episode_reward = 0
-                episode_timesteps = 0
-                episode_num += 1
-
-            # Select action randomly or according to policy
-            obs = self.env.agent_input(input)
-
-            if total_timesteps < self.start_timesteps:
-                #  action_t = torch.rand(args.batch_size, args.z_dim) # TODO checked rand instead of randn
-                action_t = torch.FloatTensor(self.batch_size, self.z_dim).uniform_(-self.max_action, self.max_action)
-                action = action_t.detach().cpu().numpy().squeeze(0)
-
-
-
-            # obs, _, _, _, _ = env(input, action_t)
-            else:
-
-                # action_rand = torch.randn(args.batch_size, args.z_dim)
-                #
-                # obs, _, _, _, _ = env( input, action_rand)
-
-                action = self.policy.select_action(np.array(obs))
-                if self.expl_noise != 0:
-                    action = (action + np.random.normal(0, self.expl_noise, size=self.z_dim)).clip(
-                        -self.max_action * np.ones(self.z_dim, ), self.max_action * np.ones(self.z_dim, ))
-                    action = np.float32(action)
-                action_t = torch.tensor(action).cuda().unsqueeze(dim=0)
-            # Perform action
-
-            # env.render()
-
-            new_obs, _, reward, done, _ = self.env(input, action_t, disp=True)
-
-            # new_obs, reward, done, _ = env.step(action)
-            done_bool = 0 if episode_timesteps + 1 == self.max_episodes_steps else float(done)
-            episode_reward += reward
-
-            # Store data in replay buffer
-            self.replay_buffer.add((obs, new_obs, action, reward, done_bool))
-
-            obs = new_obs
-
-            episode_timesteps += 1
-            total_timesteps += 1
-            timesteps_since_eval += 1

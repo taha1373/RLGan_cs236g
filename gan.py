@@ -136,8 +136,12 @@ class Generator(nn.Module):
         p1: torch.Tensor
             attention coefficients (shape: B X 49 X 49)
         """
-
-        z = z.view(z.size(0), z.size(1), 1, 1)  # shape B x z_dim x 1 x 1
+        # Taha changed:
+        try:
+            z = z.view(z.size(0), z.size(1), 1, 1)  # shape B x z_dim x 1 x 1
+        except:
+            # for batch size : 1
+            z = z.view(1, z.size(0), 1, 1)
         out = self.l1(z)  # B x z_dim x 1 x 1 ---> B x (conv_dim * 4) x 4 x 4
         out = self.l2(out)  # ---> B x (conv_dim * 4) x 7 x 7 ---> B x (conv_dim * 2) x 5 x 5
         out = self.l3(out)  # ---> B x (conv_dim * 2) x 7 x 7 ---> B x conv_dim x 7 x 7

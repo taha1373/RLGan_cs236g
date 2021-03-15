@@ -91,7 +91,7 @@ def parse_args(args):
     parser.add_argument('--attempts', default=5, type=int)  # Number of tries to give to RL Agent
     parser.add_argument("--policy_name", default="DDPG")  # Policy name TD3 OurDDPG
     parser.add_argument("--env_name", default="RLGAN")  # Policy name TD3 OurDDPG
-    parser.add_argument("--state_dim", default=128, type=int)  # State Dimesnions #TODO equal to GFV dims
+    parser.add_argument("--state_dim", default=32, type=int)  # State Dimesnions #TODO equal to GFV dims
     parser.add_argument("--max_action", default=10, type=int)  # For Normal Distribution 2.5 is feasible ?
 
     parser.add_argument("--weight", default=10, type=float)  # How often (time steps) we evaluate
