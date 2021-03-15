@@ -25,7 +25,7 @@ np.random.seed(5)
 # model_names = sorted(name for name in models.__all__)
 
 
-def evaluate_policy(policy, valid_loader, env, eval_episodes=6, render=False):
+def evaluate_policy(policy, valid_loader, env, eval_episodes=6,saveFig = False,t=None):
     avg_reward = 0.
     env.reset()  # reset the visdom and set number of figures
 
@@ -51,7 +51,7 @@ def evaluate_policy(policy, valid_loader, env, eval_episodes=6, render=False):
             action = torch.tensor(action).cuda().unsqueeze(dim=0)
             # Taha Changed:
             # new_state, _, reward, done, _ = env(input, action, render=render, disp=True)
-            new_state, reward, done = env(input, action,episodeTarget)
+            new_state, reward, done = env(input, action,episodeTarget,t,saveFig)
             avg_reward += reward
 
         if i + 1 >= eval_episodes:
@@ -66,7 +66,7 @@ def evaluate_policy(policy, valid_loader, env, eval_episodes=6, render=False):
     return avg_reward
 
 
-def test_policy(policy, valid_loader, env, eval_episodes=12, render=True):
+def test_policy(policy, valid_loader, env, eval_episodes=12, saveFig = True,t=None):
     avg_reward = 0.
     env.reset()  # reset the visdom and set number of figures
 
@@ -95,8 +95,9 @@ def test_policy(policy, valid_loader, env, eval_episodes=12, render=True):
             action = torch.tensor(action).cuda().unsqueeze(dim=0)
             # Taha Changed:
             # new_state, _, reward, done, _ = env(input, action, render=render, disp=True)
-            new_state, reward, done = env(input, action,episodeTarget)
+            new_state, reward, done = env(input, action,episodeTarget,saveFig,t)
             avg_reward += reward
+
 
         if i + 1 >= eval_episodes:
             break;
@@ -195,13 +196,13 @@ class Trainer(object):
                 if timesteps_since_eval >= self.eval_freq:
                     timesteps_since_eval %= self.eval_freq
 
-                    self.evaluations.append(evaluate_policy(self.policy, self.valid_loader, self.env, render=False))
+                    self.evaluations.append(evaluate_policy(self.policy, self.valid_loader, self.env))
 
                     if self.save_models:
                         self.policy.save('RL.pth', directory="./models")
 
                     self.env.reset()
-                    test_policy(self.policy, self.test_loader, self.env, render=True)
+                    test_policy(self.policy, self.test_loader, self.env, saveFig=True, t=total_timesteps)
 
                     self.env.reset()
 
@@ -216,7 +217,7 @@ class Trainer(object):
             obs = self.env.agent_input(input)
 
             if total_timesteps < self.start_timesteps:
-                #  action_t = torch.rand(args.batch_size, args.z_dim) # TODO checked rand instead of randn
+                 # action_t = torch.rand(args.batch_size, args.z_dim) # TODO checked rand instead of randn
                 action_t = torch.FloatTensor(self.batch_size, self.z_dim).uniform_(-self.max_action, self.max_action)
                 action = action_t.detach().cpu().numpy().squeeze(0)
 
@@ -229,8 +230,9 @@ class Trainer(object):
 
                 action = self.policy.select_action(np.array(obs))
                 if self.expl_noise != 0:
-                    action = (action + np.random.normal(0, self.expl_noise, size=self.z_dim)).clip(
-                        -self.max_action * np.ones(self.z_dim, ), self.max_action * np.ones(self.z_dim, ))
+                    # Taha changed:
+                    # action = (action + np.random.normal(0, self.expl_noise, size=self.z_dim)).clip(
+                    #     -self.max_action * np.ones(self.z_dim, ), self.max_action * np.ones(self.z_dim, ))
                     action = np.float32(action)
                 action_t = torch.tensor(action).cuda().unsqueeze(dim=0)
             # Perform action
@@ -256,6 +258,25 @@ class Trainer(object):
 
             if(total_timesteps%1e3 == 0):
                 print("{}/{}".format(total_timesteps,self.max_timesteps))
+
+
+def show_tensor_images(image_tensor, num_images=25, size=(1, 28, 28)):
+    """
+    Function for visualizing images
+
+    Parameters
+    ----------
+    image_tensor : torch.Tensor
+        batch of images to visualize
+    num_images : int
+        number of images
+    size : tuple
+        size of images
+    """
+    image_unflat = image_tensor.detach().cpu()
+    image_grid = make_grid(image_unflat[:num_images], nrow=5)
+    plt.axis('off')
+    plt.imshow(image_grid.permute(1, 2, 0).squeeze())
 
 
 # class envs(nn.Module):

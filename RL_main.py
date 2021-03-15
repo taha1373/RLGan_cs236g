@@ -40,7 +40,7 @@ def parse_args(args):
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # arguments for Saving Models
-    parser.add_argument('--save_path', default='./RL_ckpt', help='Path to Checkpoints')
+    parser.add_argument('--save_path', default='./checkPoints', help='Path to Checkpoints')
     parser.add_argument('--save', default=True, help='Save Models or not ?')  # TODO
     #  parser.add_argument('--pretrained_enc_dec',
     #                      default='/home/sarmad/PycharmProjects/pointShapeComplete/ckpts/shapenet/08-08-20:41/ae_pointnet,Adam,200epochs,b24,lr0.001/model_best.pth.tar',
