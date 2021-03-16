@@ -74,11 +74,11 @@ class Env(nn.Module):
         done = True
 
         if(saveFig):
-            plt.figure(figsize =(5,5))
+            plt.figure(num=1, figsize =(5,5))
             show_tensor_images(genImage)
             plt.title("target: {}, reward: {}".format(episodeTarget, reward))
             plt.savefig(os.path.join(self.save_path, "time_{}_number_{}".format(t,self.count)))
-            plt.show()
+            # plt.show()
 
             f = open(os.path.join(self.save_path, "time_{}_number_{}.txt".format(t,self.count)), "w")
             f.write("reward_cl: {}   reward_d:{}".format(reward_cl,reward_d))
@@ -110,7 +110,7 @@ def show_tensor_images(image_tensor, num_images=1, size=(1, 28, 28)):
         size of images
     """
     image_unflat = image_tensor.detach().cpu()
-    image_grid = make_grid(image_unflat[:num_images], nrow=1)
+    image_grid = make_grid(image_unflat[:num_images], ncol=2)
     plt.axis('off')
     plt.imshow(image_grid.permute(1, 2, 0).squeeze())
 
