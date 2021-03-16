@@ -15,7 +15,6 @@ from torch.autograd.variable import Variable
 # from utils import save_checkpoint,AverageMeter,get_n_params
 from utils import ReplayBuffer
 from RL import TD3
-
 np.random.seed(5)
 
 
@@ -192,6 +191,7 @@ class Trainer(object):
                 episodeTarget = (label+1)%10
 
                 if total_timesteps > self.start_timesteps:
+                    self.replay_buffer.save(len(self.replay_buffer) * 0.01, self.decoder, shuffle=True)
                     self.policy.train(self.replay_buffer, episode_timesteps)
                 # Evaluate episode
                 if timesteps_since_eval >= self.eval_freq:
@@ -244,7 +244,7 @@ class Trainer(object):
 
             # Taha Changed:
             # new_obs, _, reward, done, _ = self.env(input, action_t, disp=True)
-            new_obs, reward, done = self.env(input, action_t,episodeTarget)
+            new_obs, reward, done = self.env(input, action_t, episodeTarget)
 
             # new_obs, reward, done, _ = env.step(action)
             done_bool = 0 if episode_timesteps + 1 == self.max_episodes_steps else float(done)
@@ -267,7 +267,8 @@ class Trainer(object):
 def displayBuffer(buffer,numDisplay):
     for i in range(numDisplay):
         x, y, u, r, d = buffer.sample(1)
-        print('reward:',r,'action:',u)
+        print('reward:', r,'action:',u)
+
 
 
 # class envs(nn.Module):

@@ -2,6 +2,8 @@ import os
 import torch
 from torch.autograd import Variable
 import numpy as np
+import matplotlib.pyplot as plt
+from EnvClass import show_tensor_images
 
 
 def get_n_params(model):
@@ -76,16 +78,30 @@ class AverageMeter(object):
 class ReplayBuffer(object):
     def __init__(self):
         self.storage = []
+        self._saved = []
+        self._sample_ind = None
 
     # Expects tuples of (state, next_state, action, reward, done)
     def add(self, data):
         self.storage.append(data)
+        self._saved.append(False)
 
     def sample(self, batch_size=100):
         ind = np.random.randint(0, len(self.storage), size=batch_size)
-        x, y, u, r, d = [], [], [], [], []
+        self._sample_ind = ind
+        return self[ind]
 
-        for i in ind:
+    def __len__(self):
+        return len(self.storage)
+
+    def __getitem__(self, items):
+        if hasattr(items, '__iter__'):
+            items_iter = items
+        else:
+            items_iter = [items]
+
+        x, y, u, r, d = [], [], [], [], []
+        for i in items_iter:
             X, Y, U, R, D = self.storage[i]
             x.append(np.array(X, copy=False))
             y.append(np.array(Y, copy=False))
@@ -94,6 +110,28 @@ class ReplayBuffer(object):
             d.append(np.array(D, copy=False))
 
         return np.array(x), np.array(y), np.array(u), np.array(r).reshape(-1, 1), np.array(d).reshape(-1, 1)
+
+    def save(self, sample_num, model_decoder, shuffle=False, save_path='./replay'):
+        np.set_printoptions(precision=3)
+        for i in range(int(sample_num)):
+            if shuffle:
+                x, y, u, r, d = self.sample(1)
+                ind = self._sample_ind[0]
+            else:
+                x, y, u, r, d = self[i]
+                ind = i
+            if self._saved[ind]:
+                print('already saved')
+                return
+            x_tensor = torch.tensor(x).cuda()
+            y_tensor = torch.tensor(y).cuda()
+            x_img = model_decoder(x_tensor)
+            y_img = model_decoder(y_tensor)
+            title = 'reward: {}, action: {}'.format(r.squeeze(), u.squeeze())
+            show_tensor_images(torch.cat((x_img, y_img), dim=0), 2)
+            plt.title(title)
+            plt.savefig(os.path.join(save_path, "img_{}".format(ind + 1)))
+            self._saved[ind] = True
 
 
 def tensor2var(x, grad=False):
