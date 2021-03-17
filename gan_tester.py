@@ -135,3 +135,6 @@ class Tester(object):
             raise FileNotFoundError(model_path + ' not found')
         self.G.load_state_dict(torch.load(model_path))
         print('loaded trained model')
+
+
+
