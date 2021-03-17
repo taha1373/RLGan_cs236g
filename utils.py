@@ -3,10 +3,54 @@ import torch
 from torch.autograd import Variable
 import numpy as np
 import matplotlib.pyplot as plt
-from EnvClass import show_tensor_images
+
+# libraries for visualizing the image
+from torchvision.utils import make_grid
+from math import ceil, sqrt
+
+
+class toLatentTsfm(object):
+    """
+    class for transforming the images to the latent space
+    """
+    def __init__(self, ae_model, device):
+        """
+        initialize transform to encode mnist dataset
+
+        Parameters
+        ----------
+        ae_model : torch.nn.Module
+            auto-encoder model
+        device : torch.device
+            device to load model to (cpu, gpu)
+        """
+        # the vae model for transofrmation
+        self.ae = ae_model
+        # set the vae to the eval mode
+        self.ae.eval()
+        self.device = device
+
+    def __call__(self, sample):
+        image = sample
+        image = image.reshape((1,) + tuple(image.shape)).to(self.device)
+        reconImage, z_sample = self.ae(image)
+        return z_sample
 
 
 def get_n_params(model):
+    """
+    get parameter size of model
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+
+    Returns
+    -------
+    int
+        parameter size of model
+
+    """
     pp = 0
     for p in list(model.parameters()):
         nn = 1
@@ -38,55 +82,43 @@ class AverageMeter(object):
         return '{:.3f} ({:.3f})'.format(self.val, self.avg)
 
 
-# class ReplayBuffer(object):
-#     def __init__(self, state_dim, action_dim, max_size=int(1e6)):
-#         self.max_size = max_size
-#         self.ptr = 0
-#         self.size = 0
-#
-#         self.state = np.zeros((max_size, state_dim))
-#         self.action = np.zeros((max_size, action_dim))
-#         self.next_state = np.zeros((max_size, state_dim))
-#         self.reward = np.zeros((max_size, 1))
-#         self.not_done = np.zeros((max_size, 1))
-#
-#         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#
-#     def add(self, state, action, next_state, reward, done):
-#         self.state[self.ptr] = state
-#         self.action[self.ptr] = action
-#         self.next_state[self.ptr] = next_state
-#         self.reward[self.ptr] = reward
-#         self.not_done[self.ptr] = 1. - done
-#
-#         self.ptr = (self.ptr + 1) % self.max_size
-#         self.size = min(self.size + 1, self.max_size)
-#
-#     def sample(self, batch_size):
-#         ind = np.random.randint(0, self.size, size=batch_size)
-#
-#         return (
-#             torch.FloatTensor(self.state[ind]).to(self.device),
-#             torch.FloatTensor(self.action[ind]).to(self.device),
-#             torch.FloatTensor(self.next_state[ind]).to(self.device),
-#             torch.FloatTensor(self.reward[ind]).to(self.device),
-#             torch.FloatTensor(self.not_done[ind]).to(self.device)
-#         )
-
-
-# Simple replay buffer
 class ReplayBuffer(object):
     def __init__(self):
+        """
+        buffer to store environment samples seen so far
+        """
         self.storage = []
         self._saved = []
         self._sample_ind = None
 
-    # Expects tuples of (state, next_state, action, reward, done)
     def add(self, data):
+        """
+        add sample of environment to buffer
+
+        Parameters
+        ----------
+        data : tuple
+            (state, next_state, action, reward, is_episode_finished)
+
+        """
         self.storage.append(data)
         self._saved.append(False)
 
     def sample(self, batch_size=100):
+        """
+        get sample from buffer containing all seen environment informaiton
+
+        Parameters
+        ----------
+        batch_size : int
+            batch number of sample
+
+        Returns
+        -------
+        tuple
+            batch of (state, next_state, action, reward, is_episode_finished)
+
+        """
         ind = np.random.randint(0, len(self.storage), size=batch_size)
         self._sample_ind = ind
         return self[ind]
@@ -112,6 +144,24 @@ class ReplayBuffer(object):
         return np.array(x), np.array(y), np.array(u), np.array(r).reshape(-1, 1), np.array(d).reshape(-1, 1)
 
     def save(self, sample_num, model_decoder, shuffle=False, save_path='./replay'):
+        """
+        save some samples from buffer
+        if shuffle is false indexes 0:sample_num are saved
+
+        Parameters
+        ----------
+        sample_num : int
+            number of samples to save
+        model_decoder : torch.nn.Module
+            decoder model
+        shuffle : bool
+            get random sample or first elements in buffer
+        save_path : str
+            saving folder
+        """
+        if not os.path.exists(save_path):
+            os.makedirs(save_path, exist_ok=True)
+
         np.set_printoptions(precision=3)
         for i in range(int(sample_num)):
             if shuffle:
@@ -123,8 +173,9 @@ class ReplayBuffer(object):
             if self._saved[ind]:
                 print('already saved')
                 return
-            x_tensor = torch.tensor(x).cuda()
-            y_tensor = torch.tensor(y).cuda()
+            device = next(model_decoder.parameters()).device
+            x_tensor = torch.tensor(x).to(device)
+            y_tensor = torch.tensor(y).to(device)
             x_img = model_decoder(x_tensor)
             y_img = model_decoder(y_tensor)
             title = 'reward: {}, action: {}'.format(r.squeeze(), u.squeeze())
@@ -172,3 +223,21 @@ def var2numpy(x):
         variable
     """
     return x.data.cpu().numpy()
+
+
+def show_tensor_images(image_tensor, num_images=25):
+    """
+    Function for visualizing images
+
+    Parameters
+    ----------
+    image_tensor : torch.Tensor
+        batch of images to visualize
+    num_images : int
+        number of images
+    """
+    row_num = min(ceil(sqrt(num_images)), num_images)
+    image_unflat = image_tensor.detach().cpu()
+    image_grid = make_grid(image_unflat[:num_images], nrow=row_num)
+    plt.axis('off')
+    plt.imshow(image_grid.permute(1, 2, 0).squeeze())

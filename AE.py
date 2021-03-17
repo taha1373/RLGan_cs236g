@@ -4,17 +4,6 @@ import torch.nn as nn
 from torch.distributions.normal import Normal
 from torch.distributions.kl import kl_divergence
 
-# libraries for importing data
-from torch.utils.data.dataloader import DataLoader
-from torchvision import datasets, transforms
-
-# libraries for visualizing the image
-from torchvision.utils import make_grid
-
-import matplotlib.pyplot as plt
-
-
-
 
 class Encoder(nn.Module):
     """Encoder Class"""
@@ -162,7 +151,6 @@ class Decoder(nn.Module):
         return self.gen(x)
 
 
-
 class AutoEncoder(nn.Module):
     """
     Auto-Encoder Class
@@ -205,25 +193,6 @@ class AutoEncoder(nn.Module):
         z_sample = self.encode(images)
         decoding = self.decode(z_sample)
         return decoding, z_sample
-
-def show_tensor_images(image_tensor, num_images=25, size=(1, 28, 28)):
-    """
-    Function for visualizing images
-
-    Parameters
-    ----------
-    image_tensor : torch.Tensor
-        batch of images to visualize
-    num_images : int
-        number of images
-    size : tuple
-        size of images
-    """
-    image_unflat = image_tensor.detach().cpu()
-    image_grid = make_grid(image_unflat[:num_images], nrow=5)
-    plt.axis('off')
-    plt.imshow(image_grid.permute(1, 2, 0).squeeze())
-
 
 
 def kl_divergence_loss(q_dist):
