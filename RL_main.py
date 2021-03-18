@@ -63,6 +63,9 @@ def parse_args(args):
     parser.add_argument("--policy_freq", default=2, type=int)  # Frequency of delayed policy updates
     parser.add_argument("--max_episodes_steps", default=5, type=int)  # Frequency of delayed policy updates
 
+    parser.add_argument("--d_reward_coeff", default=5, type=float)
+    parser.add_argument("--cl_reward_coeff", default=30, type=float)
+
     # Model Hype-Parameter
     parser.add_argument('--l_size', default=32, type=int)
     parser.add_argument('--z_dim', type=int, default=2)
@@ -74,6 +77,8 @@ def parse_args(args):
 
     # if test: ---train False
     parser.add_argument('--train', type=str2bool, default=True)
+
+    parser.add_argument('--load_model', help='Use saved model.', action='store_true')
 
     return parser.parse_args(args)
 

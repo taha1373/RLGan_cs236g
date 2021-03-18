@@ -43,6 +43,9 @@ class Env(nn.Module):
 
         self.device = args.device
 
+        self.d_reward_coeff = args.d_reward_coeff
+        self.cl_reward_coeff = args.cl_reward_coeff
+
         # for calculating the discriminator reward
         self.hinge = torch.nn.HingeEmbeddingLoss()
 
@@ -105,8 +108,8 @@ class Env(nn.Module):
         batch_size = len(episode_target)
 
         # reward based on the classifier
-        reward_cl = 30 * np.exp(classification[0:1:batch_size, episode_target].cpu().data.numpy().squeeze())
-        reward_d = - self.hinge(dis_judge, -1 * torch.ones_like(dis_judge)).cpu().data.numpy().squeeze()
+        reward_cl = self.cl_reward_coeff * np.exp(classification[0:1:batch_size, episode_target].cpu().data.numpy().squeeze())
+        reward_d = - self.d_reward_coeff * self.hinge(dis_judge, -1 * torch.ones_like(dis_judge)).cpu().data.numpy().squeeze()
 
         reward = reward_cl + reward_d
         # reward = reward_cl
@@ -116,7 +119,7 @@ class Env(nn.Module):
         done = True
 
         if save_fig:
-            plt.figure(num=1, figsize=(5, 5))
+            plt.figure(num=1, figsize=(10, 10))
             show_tensor_images(gen_image)
             plt.title("target: {}, reward: {}".format(episode_target, reward))
             plt.savefig(os.path.join(self.save_path, "time_{}_number_{}".format(t, self.count)))

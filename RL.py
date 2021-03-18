@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import copy
-
+import os
 
 # Implementation of Twin Delayed Deep Deterministic Policy Gradients (TD3)
 # Paper: https://arxiv.org/abs/1802.09477
@@ -387,12 +387,25 @@ class TD3(object):
             directory names
 
         """
-        self.critic.load_state_dict(torch.load('%s/%s_critic.pth' % (directory, filename)))
-        self.critic_optimizer.load_state_dict(torch.load('%s/%s_critic_optimizer.pth' % (directory, filename)))
+        critic_path = '%s/%s_critic.pth' % (directory, filename)
+        critic_optimizer_path = '%s/%s_critic_optimizer.pth' % (directory, filename)
+        actor_path = '%s/%s_actor.pth' % (directory, filename)
+        actor_optimizer_path = '%s/%s_actor_optimizer.pth' % (directory, filename)
+        if not os.path.exists(critic_path):
+            raise FileNotFoundError('critic model not found')
+        if not os.path.exists(critic_optimizer_path):
+            raise FileNotFoundError('critic optimizer model not found')
+        if not os.path.exists(actor_path):
+            raise FileNotFoundError('actor model not found')
+        if not os.path.exists(actor_optimizer_path):
+            raise FileNotFoundError('actor optimizer model not found')
+
+        self.critic.load_state_dict(torch.load(critic_path))
+        self.critic_optimizer.load_state_dict(torch.load(critic_optimizer_path))
         self.critic_target = copy.deepcopy(self.critic)
 
-        self.actor.load_state_dict(torch.load('%s/%s_actor.pth' % (directory, filename)))
-        self.actor_optimizer.load_state_dict(torch.load('%s/%s_actor_optimizer.pth' % (directory, filename)))
+        self.actor.load_state_dict(torch.load(actor_path))
+        self.actor_optimizer.load_state_dict(torch.load(actor_optimizer_path))
         self.actor_target = copy.deepcopy(self.actor)
 
 

@@ -163,9 +163,11 @@ class Trainer(object):
         self.action_dim = args.z_dim
         self.max_action = args.max_action
 
-        self.policy = TD3(args.device, self.state_dim, self.action_dim, self.max_action, self.batch_size_actor, args.discount,
-                          args.tau,
-                          args.policy_noise, args.noise_clip, args.policy_freq)
+        self.policy = TD3(args.device, self.state_dim, self.action_dim, self.max_action, self.batch_size_actor,
+                          args.discount, args.tau, args.policy_noise, args.noise_clip, args.policy_freq)
+
+        if args.load_model:
+            self.policy.load('RL', directory="./models")
 
         self.evaluations = [evaluate_policy(self.policy, self.valid_loader, self.env)]
 
@@ -182,7 +184,6 @@ class Trainer(object):
         # get state and corresponding target value
         state_t, episode_target = self.train_loader.next_data()
         state = self.env.agent_input(state_t)
-
 
         done = False
         self.env.reset()
