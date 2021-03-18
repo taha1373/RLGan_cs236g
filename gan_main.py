@@ -7,35 +7,8 @@ from gan_trainer import Trainer
 from gan_tester import Tester
 from torch.utils.data import DataLoader
 from torchvision import transforms, datasets
-from AE import AutoEncoder, show_tensor_images
-
-
-class toLatentTsfm(object):
-    """
-    class for transforming the images to the latent space
-    """
-    def __init__(self, ae_model, device):
-        """
-        initialize transform to encode mnist dataset
-
-        Parameters
-        ----------
-        ae_model : torch.nn.Module
-            auto-encoder model
-        device : torch.device
-            device to load model to (cpu, gpu)
-        """
-        # the vae model for transofrmation
-        self.ae = ae_model
-        # set the vae to the eval mode
-        self.ae.eval()
-        self.device = device
-
-    def __call__(self, sample):
-        image = sample
-        image = image.reshape((1,) + tuple(image.shape)).to(self.device)
-        reconImage, z_sample = self.ae(image)
-        return z_sample
+from AE import AutoEncoder
+from utils import show_tensor_images, toLatentTsfm
 
 
 def str2bool(v):
