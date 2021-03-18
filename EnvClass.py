@@ -106,7 +106,7 @@ class Env(nn.Module):
 
         # reward based on the classifier
         reward_cl = 30 * np.exp(classification[0:1:batch_size, episode_target].cpu().data.numpy().squeeze())
-        reward_d = -10 * self.hinge(dis_judge, -1 * torch.ones_like(dis_judge)).cpu().data.numpy().squeeze()
+        reward_d = - self.hinge(dis_judge, -1 * torch.ones_like(dis_judge)).cpu().data.numpy().squeeze()
 
         reward = reward_cl + reward_d
         # reward = reward_cl

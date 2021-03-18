@@ -49,13 +49,13 @@ def parse_args(args):
     parser.add_argument("--max_action", default=10, type=int)  # For Normal Distribution 2.5 is feasible ?
 
     parser.add_argument("--weight", default=10, type=float)  # How often (time steps) we evaluate
-    parser.add_argument("--start_timesteps", default=5e4,  # 1e4
+    parser.add_argument("--start_timesteps", default=50,  # 1e4
                         type=int)  # How many time steps purely random policy is run for
     parser.add_argument("--eval_freq", default=5e3, type=float)  # How often (time steps) we evaluate
     parser.add_argument("--max_timesteps", default=1e6, type=float)  # Max time steps to run environment for
     parser.add_argument("--expl_noise", default=0.1, type=float)  # Std of Gaussian exploration noise
     parser.add_argument("--save_models", default=True)  # Save Pytorch Models?
-    parser.add_argument("--batch_size_actor", default=10, type=int)  # Batch size for both actor and critic
+    parser.add_argument("--batch_size_actor", default=50, type=int)  # Batch size for both actor and critic
     parser.add_argument("--discount", default=0.99, type=float)  # Discount factor
     parser.add_argument("--tau", default=0.005, type=float)  # Target network update rate
     parser.add_argument("--policy_noise", default=0.2, type=float)  # Noise added to target policy during critic update
