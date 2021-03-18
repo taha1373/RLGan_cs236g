@@ -192,6 +192,7 @@ class Trainer(object):
                 episodeTarget = (label+1)%10
 
                 if total_timesteps > self.start_timesteps:
+                # if total_timesteps != 0:
                     self.policy.train(self.replay_buffer, episode_timesteps)
                 # Evaluate episode
                 if timesteps_since_eval >= self.eval_freq:
@@ -234,8 +235,8 @@ class Trainer(object):
                 action = self.policy.select_action(np.array(obs))
                 if self.expl_noise != 0:
                     # Taha changed:
-                    action = (action + 0.05*np.random.normal(0, self.expl_noise, size=self.z_dim)).clip(
-                        -self.max_action * np.ones(self.z_dim, ), self.max_action * np.ones(self.z_dim,))
+                    # action = (action + 0.05*np.random.normal(0, self.expl_noise, size=self.z_dim)).clip(
+                    #     -self.max_action * np.ones(self.z_dim, ), self.max_action * np.ones(self.z_dim,))
                     action = np.float32(action)
                 action_t = torch.tensor(action).cuda().unsqueeze(dim=0)
             # Perform action

@@ -64,10 +64,10 @@ class Env(nn.Module):
 
         # reward based on the classifier
         reward_cl = 30 * np.exp(classification[0:1:batchSize,episodeTarget].cpu().data.numpy().squeeze())
-        reward_d =  -10*self.hinge(disJudge,-1*torch.ones_like(disJudge)).cpu().data.numpy().squeeze()
+        reward_d =  -self.hinge(disJudge,-1*torch.ones_like(disJudge)).cpu().data.numpy().squeeze()
 
         reward = reward_cl + reward_d
-
+        # reward = reward_cl
         # the nextState
         nextState = genOut.detach().cpu().data.numpy().squeeze()
 
