@@ -179,6 +179,7 @@ class Trainer(object):
         """
         train RL
         """
+        sum_return = 0
         episode_reward = 0
         episode_timesteps = 0
         episode_num = 0
@@ -200,11 +201,11 @@ class Trainer(object):
                 action_t = torch.randn(self.batch_size, self.z_dim)
                 action = action_t.detach().cpu().numpy().squeeze(0)
             else:
-                # action = (
-                #         self.policy.select_action(state)
-                #         + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
-                # ).clip(-self.max_action, self.max_action)
-                action = self.policy.select_action(state)
+                action = (
+                        self.policy.select_action(state)
+                        + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
+                ).clip(-self.max_action, self.max_action)
+                # action = self.policy.select_action(state)
                 action = np.float32(action)
                 action_t = torch.tensor(action).to(self.device).unsqueeze(dim=0)
 
@@ -232,12 +233,14 @@ class Trainer(object):
                 done = False
                 self.env.reset()
 
+                sum_return += episode_reward
                 episode_reward = 0
                 episode_timesteps = 0
                 episode_num += 1
 
             # Evaluate episode
             if (t + 1) % self.eval_freq == 0:
+                print(f"Total T: {t + 1} Episode Num: {episode_num} Reward: {sum_return / episode_num:.3f}")
                 # save some of environment buffer seen so far
                 self.replay_buffer.save(len(self.replay_buffer) * 0.01, self.decoder, shuffle=True)
 

@@ -70,7 +70,7 @@ def parse_args(args):
     parser.add_argument('--test', help='test model.', action='store_true')
 
     parser.add_argument('--load_model', help='Use saved model.', action='store_true')
-    parser.add_argument('--model_name', type=str, default='RL.pth')
+    parser.add_argument('--model_name', type=str, default='RL')
 
     return parser.parse_args(args)
 
