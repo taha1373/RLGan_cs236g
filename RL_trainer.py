@@ -10,6 +10,7 @@ import os
 from utils import ReplayBuffer
 from RL import TD3
 from torch.utils.tensorboard import SummaryWriter
+import pickle
 
 np.random.seed(5)
 torch.manual_seed(5)
@@ -159,11 +160,17 @@ class Trainer(object):
         self.model_path = os.path.join(args.model_dir, 'RL_train')
         os.makedirs(self.model_path, exist_ok=True)
 
+        self.rng_path = os.path.join(self.model_path, 'state.pkl')
+
         self.continue_timesteps = 0
         if args.load_model:
             self.continue_timesteps = int(args.model_name.split('_')[-1])
             self.replay_buffer.load()
             self.policy.load(args.model_name, directory=self.model_path)
+            with open(self.rng_path, 'rb') as f:
+                np_rgn_state, torch_rng_state = pickle.load(f)
+                np.random.set_state(np_rgn_state)
+                torch.set_rng_state(torch_rng_state)
 
         self.log_path = os.path.join(args.log_dir, 'RL_train')
         os.makedirs(self.log_path, exist_ok=True)
@@ -229,7 +236,7 @@ class Trainer(object):
                 done = False
                 self.env.reset()
 
-                print('step: {}, episode: {}, reward: {}'.format(t + 1, episode_num + 1, episode_reward), end='\r')
+                print('\rstep: {}, episode: {}, reward: {}'.format(t + 1, episode_num + 1, episode_reward), end='')
                 self.writer.add_scalar("episode_reward", episode_reward, t + 1)
                 sum_return += episode_reward
                 episode_reward = 0
@@ -240,7 +247,7 @@ class Trainer(object):
             if (t + 1) % self.eval_freq == 0:
                 episode_result = "step: {} episode: {} average reward: {}".format(t + 1, episode_num,
                                                                                   sum_return / episode_num)
-                print(episode_result)
+                print('\r' + episode_result)
 
                 valid_episode_num = 6
                 self.evaluations.append(evaluate_policy(self.policy, self.valid_loader, self.env,
@@ -249,28 +256,30 @@ class Trainer(object):
                 print(eval_result)
 
                 if self.save_models:
-                    print('saving model RL_{}'.format(t + 1), end='\r')
+                    with open(self.rng_path, 'wb') as f:
+                        pickle.dump((np.random.get_state(), torch.get_rng_state()), f, -1)
+                    print('\rsaving model RL_{}'.format(t + 1), end='')
                     self.policy.save('RL_{}'.format(t + 1), directory=self.model_path)
-                    print('saved model RL_{}'.format(t + 1), end='\r')
+                    print('\rsaved model RL_{}'.format(t + 1), end='')
 
-                print('saving replay buffer', end='\r')
-                # save some of environment buffer seen so far
-                self.replay_buffer.save()
-                print('saved replay buffer', end='\r')
+                    print('\rsaving replay buffer', end='')
+                    # save some of environment buffer seen so far
+                    self.replay_buffer.save()
+                    print('\rsaved replay buffer', end='')
 
-                print('saving replay buffer samples', end='\r')
+                print('\rsaving replay buffer samples', end='')
                 self.replay_buffer.save_samples(len(self.replay_buffer) * 0.01, self.decoder)
-                print('saved replay buffer samples', end='\r')
+                print('\rsaved replay buffer samples', end='')
 
-                print('saving to tensorboard', end='\r')
+                print('\rsaving to tensorboard', end='')
                 self.writer.add_scalar("average_episode_reward", sum_return / episode_num, t + 1)
                 self.writer.add_scalar("test_episode_reward", self.evaluations[-1], t + 1)
                 self.writer.flush()
-                print('saved to tensorboard', end='\r')
+                print('\rsaved to tensorboard', end='')
 
                 with open(os.path.join(self.log_path, "logs.txt"), "a") as f:
                     f.write(episode_result + '\n' + eval_result + '\n\n')
                     f.close()
 
-                print('finished saving', end='\r')
-                print("---------------------------------------")
+                print('\rfinished saving', end='')
+                print('\r---------------------------------------')
