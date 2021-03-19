@@ -28,6 +28,7 @@ def parse_args(args):
 
     # Paths
     parser.add_argument('--model_dir', type=str, default='./models')
+    parser.add_argument('--log_dir', type=str, default='./logs')
     parser.add_argument('--result_dir', type=str, default='./checkPoints')
 
     # Arguments for Torch Data Loader

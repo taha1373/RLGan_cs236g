@@ -163,7 +163,8 @@ class ReplayBuffer(object):
             os.makedirs(save_path, exist_ok=True)
 
         np.set_printoptions(precision=3)
-        for i in range(int(sample_num)):
+        buffer_length = len(self) - 1
+        for i in range(buffer_length, buffer_length - int(sample_num), -1):
             if shuffle:
                 x, y, u, r, d = self.sample(1)
                 ind = self._sample_ind[0]
@@ -171,7 +172,6 @@ class ReplayBuffer(object):
                 x, y, u, r, d = self[i]
                 ind = i
             if self._saved[ind]:
-                print('already saved')
                 return
             device = next(model_decoder.parameters()).device
             x_tensor = torch.tensor(x).to(device)
