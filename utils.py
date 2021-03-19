@@ -8,6 +8,16 @@ import matplotlib.pyplot as plt
 from torchvision.utils import make_grid
 from math import ceil, sqrt
 import pickle
+import os, fnmatch
+
+
+def find(pattern, path):
+    result = []
+    for root, dirs, files in os.walk(path):
+        for name in files:
+            if fnmatch.fnmatch(name, pattern):
+                result.append(os.path.join(root, name))
+    return result
 
 
 class toLatentTsfm(object):
@@ -83,6 +93,16 @@ class AverageMeter(object):
         return '{:.3f} ({:.3f})'.format(self.val, self.avg)
 
 
+def display_env(state_img, next_state_img, action, reward, save_path, target=None):
+    np.set_printoptions(precision=3)
+    title = 'action: {}, reward: {}'.format(action.squeeze(), reward.squeeze())
+    if target is not None:
+        title += ', target: {}'.format(target.squeeze())
+    show_tensor_images(torch.cat((state_img, next_state_img), dim=0), 2)
+    plt.title(title)
+    plt.savefig(save_path)
+
+
 class ReplayBuffer(object):
     def __init__(self):
         """
@@ -91,6 +111,7 @@ class ReplayBuffer(object):
         self.storage = []
         self._saved = []
         self._sample_ind = None
+        self._ind_to_save = 0
 
     def add(self, data):
         """
@@ -147,23 +168,18 @@ class ReplayBuffer(object):
     def save(self, file_dir='./replay'):
         if not os.path.exists(os.path.splitext(file_dir)[0]):
             os.makedirs(os.path.splitext(file_dir)[0], exist_ok=True)
-        file_path = os.path.join(os.path.splitext(file_dir)[0], 'replay.pkl')
-        tmp_path = os.path.join(os.path.splitext(file_dir)[0], 'replay_tmp.pkl')
-        with open(tmp_path, 'wb') as f:
-            pickle.dump(self.storage, f, -1)
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        os.rename(tmp_path, file_path)
+        file_path = os.path.join(os.path.splitext(file_dir)[0], 'replay_{:07}.pkl'.format(len(self)))
+        with open(file_path, 'wb') as f:
+            pickle.dump(self.storage[self._ind_to_save:], f, -1)
+        self._ind_to_save = len(self.storage)
 
     def load(self, file_dir='./replay'):
-        file_path = os.path.join(os.path.splitext(file_dir)[0], 'replay.pkl')
-        if not os.path.exists(file_path):
-            raise FileNotFoundError('pickle file does not exist')
+        file_paths = sorted(find('*.pkl', file_dir))
+        for p in file_paths:
+            with open(p, 'rb') as f:
+                self.storage += pickle.load(f)
 
-        with open(file_path, 'rb') as f:
-            self.storage = pickle.load(f)
-
-    def save_samples(self, sample_num, model_decoder, shuffle=False, save_path='./replay'):
+    def save_samples(self, sample_num, model_decoder, shuffle=False, save_path='./replay', max_num=10):
         """
         save some samples from buffer
         if shuffle is false indexes 0:sample_num are saved
@@ -178,13 +194,16 @@ class ReplayBuffer(object):
             get random sample or first elements in buffer
         save_path : str
             saving folder
+        max_num : int
+            maximum number of samples to save
         """
         if not os.path.exists(save_path):
             os.makedirs(save_path, exist_ok=True)
 
-        np.set_printoptions(precision=3)
         buffer_length = len(self) - 1
-        for i in range(buffer_length, buffer_length - int(sample_num), -1):
+
+        num = min(int(sample_num), max_num)
+        for i in range(buffer_length, buffer_length - num, -1):
             if shuffle:
                 x, y, u, r, d = self.sample(1)
                 ind = self._sample_ind[0]
@@ -196,12 +215,10 @@ class ReplayBuffer(object):
             device = next(model_decoder.parameters()).device
             x_tensor = torch.tensor(x).to(device)
             y_tensor = torch.tensor(y).to(device)
-            x_img = model_decoder(x_tensor)
-            y_img = model_decoder(y_tensor)
-            title = 'reward: {}, action: {}'.format(r.squeeze(), u.squeeze())
-            show_tensor_images(torch.cat((x_img, y_img), dim=0), 2)
-            plt.title(title)
-            plt.savefig(os.path.join(save_path, "img_{}".format(ind + 1)))
+            with torch.no_grad():
+                x_img = model_decoder(x_tensor)
+                y_img = model_decoder(y_tensor)
+            display_env(x_img, y_img, u, r, os.path.join(save_path, "img_{}".format(ind + 1)))
             self._saved[ind] = True
 
 

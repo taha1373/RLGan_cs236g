@@ -12,7 +12,7 @@ from RL import TD3
 from torch.utils.tensorboard import SummaryWriter
 
 np.random.seed(5)
-# torch.manual_seed(5)
+torch.manual_seed(5)
 
 
 class RL_dataloader:
@@ -49,7 +49,7 @@ class RL_dataloader:
         return data, (label + 1) % 10
 
 
-def evaluate_policy(policy, dataloader, env, eval_episodes=6, save_fig=False, t=None):
+def evaluate_policy(policy, dataloader, env, episode_num=6, save_fig=False, t=None):
     """
     evaluate policy based on dataloader dataset
 
@@ -61,7 +61,7 @@ def evaluate_policy(policy, dataloader, env, eval_episodes=6, save_fig=False, t=
         data loader
     env : Env
         environment class
-    eval_episodes : int
+    episode_num : int
         number of episodes to validate with
     save_fig : bool
         to save figure of result
@@ -76,9 +76,9 @@ def evaluate_policy(policy, dataloader, env, eval_episodes=6, save_fig=False, t=
     avg_reward = 0.
     env.reset()
 
-    for i in range(0, eval_episodes):
+    for i in range(0, episode_num):
         input, episodeTarget = dataloader.next_data()
-        obs = env.agent_input(input)
+        obs = env.set_state(input)
         done = False
 
         while not done:
@@ -88,10 +88,7 @@ def evaluate_policy(policy, dataloader, env, eval_episodes=6, save_fig=False, t=
             new_state, reward, done = env(action, episodeTarget, save_fig, t)
             avg_reward += reward
 
-        if i + 1 >= eval_episodes:
-            break
-
-    avg_reward /= eval_episodes
+    avg_reward /= episode_num
 
     return avg_reward
 
@@ -99,7 +96,7 @@ def evaluate_policy(policy, dataloader, env, eval_episodes=6, save_fig=False, t=
 class Trainer(object):
     """RL trainer"""
 
-    def __init__(self, args, train_loader, valid_loader, test_loader, model_encoder, model_decoder, model_g, model_d,
+    def __init__(self, args, train_loader, valid_loader, model_encoder, model_decoder, model_g, model_d,
                  model_classifier):
         """
         initialize RL trainer
@@ -127,7 +124,6 @@ class Trainer(object):
 
         self.train_loader = RL_dataloader(train_loader)
         self.valid_loader = RL_dataloader(valid_loader)
-        self.test_loader = RL_dataloader(test_loader)
 
         self.epoch_size = len(self.valid_loader)
         self.max_timesteps = args.max_timesteps
@@ -175,7 +171,7 @@ class Trainer(object):
         # writing log for training
         self.writer = SummaryWriter(self.log_path)
 
-        self.evaluations = [evaluate_policy(self.policy, self.valid_loader, self.env)]
+        self.evaluations = []
 
     def train(self):
         """
@@ -188,7 +184,7 @@ class Trainer(object):
 
         # get state and corresponding target value
         state_t, episode_target = self.train_loader.next_data()
-        state = self.env.agent_input(state_t)
+        state = self.env.set_state(state_t)
 
         done = False
         self.env.reset()
@@ -196,7 +192,6 @@ class Trainer(object):
         print('start/continue model from t: {}'.format(self.continue_timesteps))
         print('start buffer length: {}'.format(len(self.replay_buffer)))
         for t in range(int(self.continue_timesteps), int(self.max_timesteps)):
-
             episode_timesteps += 1
 
             # Select action randomly or according to policy
@@ -229,11 +224,12 @@ class Trainer(object):
             if done:
                 # Reset environment
                 state_t, episode_target = self.train_loader.next_data()
-                state = self.env.agent_input(state_t)
+                state = self.env.set_state(state_t)
 
                 done = False
                 self.env.reset()
 
+                print('step: {}, episode: {}, reward: {}'.format(t + 1, episode_num + 1, episode_reward), end='\r')
                 self.writer.add_scalar("episode_reward", episode_reward, t + 1)
                 sum_return += episode_reward
                 episode_reward = 0
@@ -242,32 +238,39 @@ class Trainer(object):
 
             # Evaluate episode
             if (t + 1) % self.eval_freq == 0:
-                print("---------------------------------------")
-                episode_result = "Total T: {} Episode Num: {} Average Reward: {}".format(t + 1, episode_num,
-                                                                                         sum_return / episode_num)
+                episode_result = "step: {} episode: {} average reward: {}".format(t + 1, episode_num,
+                                                                                  sum_return / episode_num)
                 print(episode_result)
 
-                self.evaluations.append(evaluate_policy(self.policy, self.valid_loader, self.env))
-                eval_avg_reward = evaluate_policy(self.policy, self.test_loader, self.env, save_fig=True, t=t)
-                eval_result = "Evaluation over 6 episodes: {}".format(eval_avg_reward)
+                valid_episode_num = 6
+                self.evaluations.append(evaluate_policy(self.policy, self.valid_loader, self.env,
+                                                        episode_num=valid_episode_num, save_fig=True, t=t))
+                eval_result = "evaluation over {} episodes: {}".format(valid_episode_num, self.evaluations[-1])
                 print(eval_result)
 
                 if self.save_models:
-                    print('saving model RL_{}'.format(t + 1))
+                    print('saving model RL_{}'.format(t + 1), end='\r')
                     self.policy.save('RL_{}'.format(t + 1), directory=self.model_path)
+                    print('saved model RL_{}'.format(t + 1), end='\r')
 
-                print('saving replay buffer')
+                print('saving replay buffer', end='\r')
                 # save some of environment buffer seen so far
                 self.replay_buffer.save()
-                self.replay_buffer.save_samples(len(self.replay_buffer) * 0.01, self.decoder)
+                print('saved replay buffer', end='\r')
 
-                print('saving to tensorboard')
+                print('saving replay buffer samples', end='\r')
+                self.replay_buffer.save_samples(len(self.replay_buffer) * 0.01, self.decoder)
+                print('saved replay buffer samples', end='\r')
+
+                print('saving to tensorboard', end='\r')
                 self.writer.add_scalar("average_episode_reward", sum_return / episode_num, t + 1)
-                self.writer.add_scalar("test_episode_reward", eval_avg_reward, t + 1)
+                self.writer.add_scalar("test_episode_reward", self.evaluations[-1], t + 1)
                 self.writer.flush()
+                print('saved to tensorboard', end='\r')
 
                 with open(os.path.join(self.log_path, "logs.txt"), "a") as f:
                     f.write(episode_result + '\n' + eval_result + '\n\n')
                     f.close()
 
-                print('finished saving')
+                print('finished saving', end='\r')
+                print("---------------------------------------")

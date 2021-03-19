@@ -1,13 +1,9 @@
 # libraries
 import torch
 import torch.nn as nn
-from torch.autograd.variable import Variable
 import os
 import numpy as np
-from utils import show_tensor_images
-
-# libraries for visualizing the image
-import matplotlib.pyplot as plt
+from utils import display_env
 
 
 class Env(nn.Module):
@@ -29,6 +25,8 @@ class Env(nn.Module):
             decoder model
         """
         super(Env, self).__init__()
+
+        self._state = None
 
         # generator model
         self.generator = model_G
@@ -59,12 +57,12 @@ class Env(nn.Module):
         """
         self.count = 0
 
-    def agent_input(self, input):
+    def set_state(self, state):
         """
         detach input from tensor to numpy (get numpy state)
         Parameters
         ----------
-        input : torch.Tensor
+        state : torch.Tensor
             tensor of input state
 
         Returns
@@ -72,7 +70,8 @@ class Env(nn.Module):
         numpy.ndarray
             numpy array of state
         """
-        return input.detach().cpu().numpy().squeeze()
+        self._state = state
+        return state.detach().cpu().numpy().squeeze()
 
     def forward(self, action, episode_target, save_fig=False, t=None):
         """
@@ -95,10 +94,9 @@ class Env(nn.Module):
             next_state, reward, is_episode_finished
         """
         # episodeTarget: the number that the RL agent is trying to find
-
         with torch.no_grad():
             # action
-            z = Variable(action, requires_grad=True).to(self.device).squeeze()
+            z = action.to(self.device).squeeze()
 
             gen_out, _ = self.generator(z)
             dis_judge, _ = self.disciminator(gen_out)
@@ -113,22 +111,24 @@ class Env(nn.Module):
 
         reward = reward_cl + reward_d
         # reward = reward_cl
-        # the nextState
-        next_state = gen_out.detach().cpu().data.numpy().squeeze()
 
         done = True
 
         if save_fig:
-            plt.figure(num=1, figsize=(10, 10))
-            show_tensor_images(gen_image)
-            plt.title("target: {}, reward: {}".format(episode_target, reward))
-            plt.savefig(os.path.join(self.save_path, "time_{}_number_{}".format(t, self.count)))
-            # plt.show()
+            with torch.no_grad():
+                self._state.to(self.device)
+                state_image = self.decoder(self._state)
+            display_env(state_image, gen_image, action.detach().cpu().numpy(), reward,
+                        os.path.join(self.save_path, "step_{}_episode_{}".format(t + 1, self.count)),
+                        target=episode_target.detach().cpu().numpy())
 
-            f = open(os.path.join(self.save_path, "time_{}_number_{}.txt".format(t, self.count)), "w")
-            f.write("reward_cl: {}   reward_d:{}".format(reward_cl, reward_d))
+            f = open(os.path.join(self.save_path, "step_{}_episode_{}.txt".format(t + 1, self.count)), "w")
+            f.write("classification reward: {},   discriminator reward_d: {}".format(reward_cl, reward_d))
             f.close()
 
             self.count += 1
 
+        # the nextState
+        next_state = gen_out.detach().cpu().data.numpy().squeeze()
+        self._state = gen_out
         return next_state, reward, done

@@ -120,7 +120,7 @@ def main(args):
     print('| Number of Decoder parameters [' + str(params) + ']...')
 
     if not args.test:
-        trainer = Trainer(args, train_loader, valid_loader, test_loader, ae.encode, ae.decode, g_model, d_model, cl)
+        trainer = Trainer(args, train_loader, valid_loader, ae.encode, ae.decode, g_model, d_model, cl)
         trainer.train()
     else:
         raise NotImplementedError('test not yet implemented')
