@@ -166,8 +166,10 @@ class Trainer(object):
         self.policy = TD3(args.device, self.state_dim, self.action_dim, self.max_action, self.batch_size_actor,
                           args.discount, args.tau, args.policy_noise, args.noise_clip, args.policy_freq)
 
+        self.model_path = os.path.join(args.model_dir, 'RL_train')
+        os.makedirs(self.model_path, exist_ok=True)
         if args.load_model:
-            self.policy.load('RL', directory="./models")
+            self.policy.load(args.model_name, directory=self.model_path)
 
         self.evaluations = [evaluate_policy(self.policy, self.valid_loader, self.env)]
 
@@ -198,10 +200,11 @@ class Trainer(object):
                 action_t = torch.randn(self.batch_size, self.z_dim)
                 action = action_t.detach().cpu().numpy().squeeze(0)
             else:
-                action = (
-                        self.policy.select_action(state)
-                        + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
-                ).clip(-self.max_action, self.max_action)
+                # action = (
+                #         self.policy.select_action(state)
+                #         + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
+                # ).clip(-self.max_action, self.max_action)
+                action = self.policy.select_action(state)
                 action = np.float32(action)
                 action_t = torch.tensor(action).to(self.device).unsqueeze(dim=0)
 
@@ -241,4 +244,4 @@ class Trainer(object):
                 self.evaluations.append(evaluate_policy(self.policy, self.valid_loader, self.env))
                 evaluate_policy(self.policy, self.test_loader, self.env, save_fig=True, t=t)
                 if self.save_models:
-                    self.policy.save('RL', directory="./models")
+                    self.policy.save('RL_{}'.format(t), directory=self.model_path)

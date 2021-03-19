@@ -50,7 +50,7 @@ class Env(nn.Module):
         self.hinge = torch.nn.HingeEmbeddingLoss()
 
         self.count = 0
-        self.save_path = os.path.join(args.save_path, 'RL_train')
+        self.save_path = os.path.join(args.result_dir, 'RL_train')
         os.makedirs(self.save_path, exist_ok=True)
 
     def reset(self):
