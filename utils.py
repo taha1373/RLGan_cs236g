@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 # libraries for visualizing the image
 from torchvision.utils import make_grid
 from math import ceil, sqrt
+import pickle
 
 
 class toLatentTsfm(object):
@@ -143,7 +144,26 @@ class ReplayBuffer(object):
 
         return np.array(x), np.array(y), np.array(u), np.array(r).reshape(-1, 1), np.array(d).reshape(-1, 1)
 
-    def save(self, sample_num, model_decoder, shuffle=False, save_path='./replay'):
+    def save(self, file_dir='./replay'):
+        if not os.path.exists(os.path.splitext(file_dir)[0]):
+            os.makedirs(os.path.splitext(file_dir)[0], exist_ok=True)
+        file_path = os.path.join(os.path.splitext(file_dir)[0], 'replay.pkl')
+        tmp_path = os.path.join(os.path.splitext(file_dir)[0], 'replay_tmp.pkl')
+        with open(tmp_path, 'wb') as f:
+            pickle.dump(self.storage, f, -1)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        os.rename(tmp_path, file_path)
+
+    def load(self, file_dir='./replay'):
+        file_path = os.path.join(os.path.splitext(file_dir)[0], 'replay.pkl')
+        if not os.path.exists(file_path):
+            raise FileNotFoundError('pickle file does not exist')
+
+        with open(file_path, 'rb') as f:
+            self.storage = pickle.load(f)
+
+    def save_samples(self, sample_num, model_decoder, shuffle=False, save_path='./replay'):
         """
         save some samples from buffer
         if shuffle is false indexes 0:sample_num are saved

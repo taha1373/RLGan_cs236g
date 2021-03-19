@@ -1,17 +1,12 @@
 import torch
-import torch.nn as nn
 import torch.utils.data
 import torch.nn.parallel
-import time
 
-import models
 from EnvClass import Env
-from collections import OrderedDict
 
 import numpy as np
 import os
 
-from torch.autograd.variable import Variable
 from utils import ReplayBuffer
 from RL import TD3
 from torch.utils.tensorboard import SummaryWriter
@@ -163,9 +158,15 @@ class Trainer(object):
         self.policy = TD3(args.device, self.state_dim, self.action_dim, self.max_action, self.batch_size_actor,
                           args.discount, args.tau, args.policy_noise, args.noise_clip, args.policy_freq)
 
+        self.replay_buffer = ReplayBuffer()
+
         self.model_path = os.path.join(args.model_dir, 'RL_train')
         os.makedirs(self.model_path, exist_ok=True)
+
+        self.continue_timesteps = 0
         if args.load_model:
+            self.continue_timesteps = int(args.model_name.split('_')[-1])
+            self.replay_buffer.load()
             self.policy.load(args.model_name, directory=self.model_path)
 
         self.log_path = os.path.join(args.log_dir, 'RL_train')
@@ -175,8 +176,6 @@ class Trainer(object):
         self.writer = SummaryWriter(self.log_path)
 
         self.evaluations = [evaluate_policy(self.policy, self.valid_loader, self.env)]
-
-        self.replay_buffer = ReplayBuffer()
 
     def train(self):
         """
@@ -194,7 +193,9 @@ class Trainer(object):
         done = False
         self.env.reset()
 
-        for t in range(int(self.max_timesteps)):
+        print('start/continue model from t: {}'.format(self.continue_timesteps))
+        print('start buffer length: {}'.format(len(self.replay_buffer)))
+        for t in range(int(self.continue_timesteps), int(self.max_timesteps)):
 
             episode_timesteps += 1
 
@@ -226,9 +227,6 @@ class Trainer(object):
                 self.policy.train(self.replay_buffer)
 
             if done:
-                # +1 to account for 0 indexing. +0 on ep_timesteps since it will increment +1 even if done=True
-                # print(
-                #     f"Total T: {t + 1} Episode Num: {episode_num + 1} Episode T: {episode_timesteps} Reward: {episode_reward:.3f}")
                 # Reset environment
                 state_t, episode_target = self.train_loader.next_data()
                 state = self.env.agent_input(state_t)
@@ -244,19 +242,26 @@ class Trainer(object):
 
             # Evaluate episode
             if (t + 1) % self.eval_freq == 0:
+                print("---------------------------------------")
                 episode_result = "Total T: {} Episode Num: {} Average Reward: {}".format(t + 1, episode_num,
                                                                                          sum_return / episode_num)
                 print(episode_result)
-                # save some of environment buffer seen so far
-                self.replay_buffer.save(len(self.replay_buffer) * 0.01, self.decoder)
 
                 self.evaluations.append(evaluate_policy(self.policy, self.valid_loader, self.env))
                 eval_avg_reward = evaluate_policy(self.policy, self.test_loader, self.env, save_fig=True, t=t)
                 eval_result = "Evaluation over 6 episodes: {}".format(eval_avg_reward)
-                print("---------------------------------------")
                 print(eval_result)
-                print("---------------------------------------")
 
+                if self.save_models:
+                    print('saving model RL_{}'.format(t + 1))
+                    self.policy.save('RL_{}'.format(t + 1), directory=self.model_path)
+
+                print('saving replay buffer')
+                # save some of environment buffer seen so far
+                self.replay_buffer.save()
+                self.replay_buffer.save_samples(len(self.replay_buffer) * 0.01, self.decoder)
+
+                print('saving to tensorboard')
                 self.writer.add_scalar("average_episode_reward", sum_return / episode_num, t + 1)
                 self.writer.add_scalar("test_episode_reward", eval_avg_reward, t + 1)
                 self.writer.flush()
@@ -264,5 +269,5 @@ class Trainer(object):
                 with open(os.path.join(self.log_path, "logs.txt"), "a") as f:
                     f.write(episode_result + '\n' + eval_result + '\n\n')
                     f.close()
-                if self.save_models:
-                    self.policy.save('RL_{}'.format(t + 1), directory=self.model_path)
+
+                print('finished saving')
