@@ -230,7 +230,7 @@ class TD3(object):
     """
     Twin Delayed Deep Deterministic Policy Gradients model
     """
-    def __init__(self, device, state_dim, action_dim, max_action, batch_size=100, discount=0.99, tau=0.005, policy_noise=0.2,
+    def __init__(self, device, state_dim, action_dim, max_action, lr, batch_size=100, discount=0.99, tau=0.005, policy_noise=0.2,
                  noise_clip=0.5, policy_freq=2):
         """
         initialize TD3
@@ -269,11 +269,11 @@ class TD3(object):
 
         self.actor = Actor(state_dim, action_dim, max_action).to(self.device)
         self.actor_target = copy.deepcopy(self.actor)
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=3e-4)
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=lr)
 
         self.critic = Critic(state_dim, action_dim).to(self.device)
         self.critic_target = copy.deepcopy(self.critic)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=3e-4)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=lr)
 
         self.total_it = 0
 

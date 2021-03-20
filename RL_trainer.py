@@ -152,7 +152,7 @@ class Trainer(object):
         self.action_dim = args.z_dim
         self.max_action = args.max_action
 
-        self.policy = TD3(args.device, self.state_dim, self.action_dim, self.max_action, self.batch_size_actor,
+        self.policy = TD3(args.device, self.state_dim, self.action_dim, self.max_action, args.lr, self.batch_size_actor,
                           args.discount, args.tau, args.policy_noise, args.noise_clip, args.policy_freq)
 
         self.replay_buffer = ReplayBuffer()

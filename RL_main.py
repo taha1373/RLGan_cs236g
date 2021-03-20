@@ -41,6 +41,7 @@ def parse_args(args):
     parser.add_argument('--d_conv_dim', type=int, default=16)
 
     # Hyper parameters for RL
+    parser.add_argument("--lr", default=5e-5, type=float)
     parser.add_argument("--state_dim", default=32, type=int)  # State Dimesnions
     parser.add_argument("--max_action", default=10, type=int)  # For Normal Distribution 2.5 is feasible ?
     parser.add_argument("--max_episodes_steps", default=5, type=int)  # Frequency of delayed policy updates
