@@ -7,47 +7,10 @@ from EnvClass import Env
 import numpy as np
 import os
 
-from utils import ReplayBuffer
+from utils import ReplayBuffer, RL_dataloader
 from RL import TD3
 from torch.utils.tensorboard import SummaryWriter
 import pickle
-
-np.random.seed(5)
-torch.manual_seed(5)
-
-
-class RL_dataloader:
-    """data loader for RL training"""
-    def __init__(self, dataloader):
-        """
-        initialize RL data loader
-
-        Parameters
-        ----------
-        dataloader : torch.utils.data.dataloader
-            torch data loader
-        """
-        self.loader = dataloader
-        self.loader_iter = iter(self.loader)
-
-    def __len__(self):
-        return len(self.loader)
-
-    def next_data(self):
-        """
-        get a state and corresponding target value from dataset
-
-        Returns
-        -------
-        tuple
-            state and target value
-        """
-        try:
-            data, label = next(self.loader_iter)
-        except:
-            self.loader_iter = iter(self.loader)
-            data, label = next(self.loader_iter)
-        return data, (label + 1) % 10
 
 
 def evaluate_policy(policy, dataloader, env, episode_num=6, save_fig=False, t=None):
@@ -110,8 +73,6 @@ class Trainer(object):
             torch data loader of train dataset
         valid_loader : torch.utils.data.dataloader
             torch data loader of validation dataset
-        test_loader : torch.utils.data.dataloader
-            torch data loader of test dataset
         model_encoder : torch.nn.Module
             encoder model
         model_decoder : torch.nn.Module
@@ -121,6 +82,10 @@ class Trainer(object):
         model_d : torch.nn.Module
             discriminator model
         """
+
+        np.random.seed(5)
+        torch.manual_seed(5)
+
         self.device = args.device
 
         self.train_loader = RL_dataloader(train_loader)

@@ -20,6 +20,40 @@ def find(pattern, path):
     return result
 
 
+class RL_dataloader:
+    """data loader for RL training"""
+    def __init__(self, dataloader):
+        """
+        initialize RL data loader
+
+        Parameters
+        ----------
+        dataloader : torch.utils.data.dataloader
+            torch data loader
+        """
+        self.loader = dataloader
+        self.loader_iter = iter(self.loader)
+
+    def __len__(self):
+        return len(self.loader)
+
+    def next_data(self):
+        """
+        get a state and corresponding target value from dataset
+
+        Returns
+        -------
+        tuple
+            state and target value
+        """
+        try:
+            data, label = next(self.loader_iter)
+        except:
+            self.loader_iter = iter(self.loader)
+            data, label = next(self.loader_iter)
+        return data, (label + 1) % 10
+
+
 class toLatentTsfm(object):
     """
     class for transforming the images to the latent space
@@ -93,11 +127,13 @@ class AverageMeter(object):
         return '{:.3f} ({:.3f})'.format(self.val, self.avg)
 
 
-def display_env(state_img, next_state_img, action, reward, save_path, target=None):
+def display_env(state_img, next_state_img, reward, save_path, action=None, target=None):
     np.set_printoptions(precision=3)
-    title = 'action: {}, reward: {}'.format(action.squeeze(), reward.squeeze())
+    title = 'reward: {}'.format(reward.squeeze())
     if target is not None:
         title += ', target: {}'.format(target.squeeze())
+    if action is not None:
+        title = 'action: {}'.format(action.squeeze()) + title
     show_tensor_images(torch.cat((state_img, next_state_img), dim=0), 2)
     plt.title(title)
     plt.savefig(save_path)
@@ -218,7 +254,7 @@ class ReplayBuffer(object):
             with torch.no_grad():
                 x_img = model_decoder(x_tensor)
                 y_img = model_decoder(y_tensor)
-            display_env(x_img, y_img, u, r, os.path.join(save_path, "img_{}".format(ind + 1)))
+            display_env(x_img, y_img, r, os.path.join(save_path, "img_{}".format(ind + 1)), u)
             self._saved[ind] = True
 
 

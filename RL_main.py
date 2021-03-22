@@ -8,6 +8,7 @@ from torch.utils.data import random_split
 from torch.utils.data.dataloader import DataLoader
 from torchvision import datasets, transforms
 from RL_trainer import Trainer
+from RL_tester import Tester
 
 from AE import AutoEncoder
 from gan import Generator, Discriminator
@@ -72,7 +73,7 @@ def parse_args(args):
     parser.add_argument('--test', help='test model.', action='store_true')
 
     parser.add_argument('--load_model', help='Use saved model.', action='store_true')
-    parser.add_argument('--model_name', type=str, default='RL_5000')
+    parser.add_argument('--model_name', type=str, default='RL_90000')
 
     return parser.parse_args(args)
 
@@ -124,7 +125,10 @@ def main(args):
         trainer = Trainer(args, train_loader, valid_loader, ae.encode, ae.decode, g_model, d_model, cl)
         trainer.train()
     else:
-        raise NotImplementedError('test not yet implemented')
+        tester = Tester(args, test_loader, ae.encode, ae.decode, g_model, d_model, cl)
+        evaluater = tester.evaluate()
+        for i in range(20):
+            next(evaluater)
 
 
 if __name__ == '__main__':
