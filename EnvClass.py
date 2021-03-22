@@ -118,9 +118,9 @@ class Env(nn.Module):
             with torch.no_grad():
                 self._state.to(self.device)
                 state_image = self.decoder(self._state)
-            display_env(state_image, gen_image, action.detach().cpu().numpy(), reward,
+            display_env(state_image, gen_image, reward,
                         os.path.join(self.save_path, "step_{}_episode_{}".format(t + 1, self.count)),
-                        target=episode_target.detach().cpu().numpy())
+                        action.detach().cpu().numpy(), target=episode_target.detach().cpu().numpy())
 
             f = open(os.path.join(self.save_path, "step_{}_episode_{}.txt".format(t + 1, self.count)), "w")
             f.write("classification reward: {},   discriminator reward_d: {}".format(reward_cl, reward_d))

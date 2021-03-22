@@ -230,8 +230,8 @@ class TD3(object):
     """
     Twin Delayed Deep Deterministic Policy Gradients model
     """
-    def __init__(self, device, state_dim, action_dim, max_action, lr, batch_size=100, discount=0.99, tau=0.005, policy_noise=0.2,
-                 noise_clip=0.5, policy_freq=2):
+    def __init__(self, device, state_dim, action_dim, max_action, lr=0.0, batch_size=1, discount=0.99, tau=0.005,
+                 policy_noise=0.2, noise_clip=0.5, policy_freq=2):
         """
         initialize TD3
 
@@ -245,6 +245,8 @@ class TD3(object):
             dimension of action
         max_action : int, float
             maximum value possible for action
+        lr : float
+            learning rate
         batch_size : int
             batch size of steps to train model on
         discount : float
@@ -400,12 +402,12 @@ class TD3(object):
         if not os.path.exists(actor_optimizer_path):
             raise FileNotFoundError('actor optimizer model not found')
 
-        self.critic.load_state_dict(torch.load(critic_path))
-        self.critic_optimizer.load_state_dict(torch.load(critic_optimizer_path))
+        self.critic.load_state_dict(torch.load(critic_path, map_location=self.device))
+        self.critic_optimizer.load_state_dict(torch.load(critic_optimizer_path, map_location=self.device))
         self.critic_target = copy.deepcopy(self.critic)
 
-        self.actor.load_state_dict(torch.load(actor_path))
-        self.actor_optimizer.load_state_dict(torch.load(actor_optimizer_path))
+        self.actor.load_state_dict(torch.load(actor_path, map_location=self.device))
+        self.actor_optimizer.load_state_dict(torch.load(actor_optimizer_path, map_location=self.device))
         self.actor_target = copy.deepcopy(self.actor)
 
 
