@@ -36,7 +36,7 @@ def parse_args(args):
     parser.add_argument('-w', '--workers', type=int, default=8, help='Set the number of workers')
 
     # Model Hype-Parameter
-    parser.add_argument('--z_dim', type=int, default=2)
+    parser.add_argument('--z_dim', type=int, default=5)
     parser.add_argument('--g_conv_dim', type=int, default=16)
     parser.add_argument('--d_conv_dim', type=int, default=16)
 
@@ -63,7 +63,7 @@ def parse_args(args):
     parser.add_argument("--policy_freq", default=2, type=int)  # Frequency of delayed policy updates
 
     # environment parameters
-    parser.add_argument("--d_reward_coeff", default=5, type=float)
+    parser.add_argument("--d_reward_coeff", default=3, type=float)
     parser.add_argument("--cl_reward_coeff", default=30, type=float)
 
     # GPU settings
